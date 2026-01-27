@@ -57,6 +57,35 @@ app.get('/buildings/search', async (req, res) => {
   res.json(data);
 });
 
+// Get buildings nearby (within radius in meters)
+// NOTE: This must come BEFORE /buildings/:id to avoid "nearby" being matched as an ID
+app.get('/buildings/nearby', async (req, res) => {
+  const { lat, lng, radius = 1000 } = req.query;
+
+  if (!lat || !lng) {
+    return res.status(400).json({ error: 'lat and lng are required' });
+  }
+
+  // Convert radius from meters to approximate degrees
+  const latDelta = parseFloat(radius) / 111000;
+  const lngDelta = parseFloat(radius) / (111000 * Math.cos(parseFloat(lat) * Math.PI / 180));
+
+  const { data, error } = await supabase
+    .from('buildings')
+    .select(`
+      *,
+      reports (id, has_roaches, severity, created_at)
+    `)
+    .gte('latitude', parseFloat(lat) - latDelta)
+    .lte('latitude', parseFloat(lat) + latDelta)
+    .gte('longitude', parseFloat(lng) - lngDelta)
+    .lte('longitude', parseFloat(lng) + lngDelta)
+    .limit(100);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
 // Get building by ID with all reports
 app.get('/buildings/:id', async (req, res) => {
   const { id } = req.params;
@@ -97,34 +126,6 @@ app.get('/buildings/:id', async (req, res) => {
       avgSeverity: Math.round(avgSeverity * 10) / 10
     }
   });
-});
-
-// Get buildings nearby (within radius in meters)
-app.get('/buildings/nearby', async (req, res) => {
-  const { lat, lng, radius = 1000 } = req.query;
-
-  if (!lat || !lng) {
-    return res.status(400).json({ error: 'lat and lng are required' });
-  }
-
-  // Convert radius from meters to approximate degrees
-  const latDelta = parseFloat(radius) / 111000;
-  const lngDelta = parseFloat(radius) / (111000 * Math.cos(parseFloat(lat) * Math.PI / 180));
-
-  const { data, error } = await supabase
-    .from('buildings')
-    .select(`
-      *,
-      reports (id, has_roaches, severity, created_at)
-    `)
-    .gte('latitude', parseFloat(lat) - latDelta)
-    .lte('latitude', parseFloat(lat) + latDelta)
-    .gte('longitude', parseFloat(lng) - lngDelta)
-    .lte('longitude', parseFloat(lng) + lngDelta)
-    .limit(100);
-
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
 });
 
 // Create building (or return existing)
