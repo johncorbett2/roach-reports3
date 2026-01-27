@@ -6,6 +6,35 @@ require('dotenv').config();
 
 const app = express();
 
+// Google Maps Geocoding function
+async function geocodeAddress(address) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || apiKey === 'your-google-api-key') {
+    console.warn('Google Maps API key not configured, skipping geocoding');
+    return null;
+  }
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      return {
+        latitude: location.lat,
+        longitude: location.lng
+      };
+    } else {
+      console.warn('Geocoding failed:', data.status, data.error_message || '');
+      return null;
+    }
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
+
 app.use(cors({ origin: ['http://localhost:19006', 'http://localhost:8081', '*'] }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -147,10 +176,21 @@ app.post('/buildings', async (req, res) => {
     return res.json(existing[0]);
   }
 
+  // Geocode address if coordinates not provided
+  let finalLat = latitude;
+  let finalLng = longitude;
+  if (!finalLat || !finalLng) {
+    const coords = await geocodeAddress(address);
+    if (coords) {
+      finalLat = coords.latitude;
+      finalLng = coords.longitude;
+    }
+  }
+
   // Create new building
   const { data, error } = await supabase
     .from('buildings')
-    .insert([{ address, city, state, zip, latitude, longitude }])
+    .insert([{ address, city, state, zip, latitude: finalLat, longitude: finalLng }])
     .select()
     .single();
 
@@ -211,9 +251,20 @@ app.post('/reports', async (req, res) => {
     if (existing && existing.length > 0) {
       finalBuildingId = existing[0].id;
     } else {
+      // Geocode address if coordinates not provided
+      let finalLat = latitude;
+      let finalLng = longitude;
+      if (!finalLat || !finalLng) {
+        const coords = await geocodeAddress(address);
+        if (coords) {
+          finalLat = coords.latitude;
+          finalLng = coords.longitude;
+        }
+      }
+
       const { data: newBuilding, error: buildingError } = await supabase
         .from('buildings')
-        .insert([{ address, latitude, longitude }])
+        .insert([{ address, latitude: finalLat, longitude: finalLng }])
         .select('id')
         .single();
 
