@@ -217,6 +217,7 @@ const styles = StyleSheet.create({
   predictionMain: {
     fontSize: 15,
     fontWeight: '500',
+    color: '#333',
   },
   predictionSecondary: {
     fontSize: 13,
