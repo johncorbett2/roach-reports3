@@ -12,10 +12,13 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 
 import { Text, View } from '@/components/Themed';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { reportsApi } from '@/services/api';
+import { ValidatedAddress } from '@/types';
 
 export default function ReportScreen() {
   const [address, setAddress] = useState('');
+  const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
   const [unitNumber, setUnitNumber] = useState('');
   const [hasRoaches, setHasRoaches] = useState(false);
   const [severity, setSeverity] = useState(3);
@@ -63,8 +66,8 @@ export default function ReportScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!address.trim()) {
-      Alert.alert('Error', 'Please enter an address.');
+    if (!validatedAddress) {
+      Alert.alert('Error', 'Please select a valid address from the suggestions.');
       return;
     }
 
@@ -72,11 +75,16 @@ export default function ReportScreen() {
 
     try {
       const report = await reportsApi.create({
-        address: address.trim(),
+        address: validatedAddress.formatted_address,
         unit_number: unitNumber.trim() || undefined,
         has_roaches: hasRoaches,
         severity: hasRoaches ? severity : undefined,
         notes: notes.trim() || undefined,
+        latitude: validatedAddress.latitude,
+        longitude: validatedAddress.longitude,
+        city: validatedAddress.city,
+        state: validatedAddress.state,
+        zip: validatedAddress.zip,
       });
 
       // Upload images if any
@@ -100,6 +108,7 @@ export default function ReportScreen() {
 
   const resetForm = () => {
     setAddress('');
+    setValidatedAddress(null);
     setUnitNumber('');
     setHasRoaches(false);
     setSeverity(3);
@@ -115,14 +124,12 @@ export default function ReportScreen() {
           Help other renters by reporting your experience
         </Text>
 
-        <View style={styles.field}>
+        <View style={[styles.field, styles.addressField]}>
           <Text style={styles.label}>Building Address *</Text>
-          <TextInput
-            style={styles.input}
+          <AddressAutocomplete
             value={address}
             onChangeText={setAddress}
-            placeholder="123 Main St, New York, NY 10001"
-            placeholderTextColor="#999"
+            onAddressValidated={setValidatedAddress}
           />
         </View>
 
@@ -228,9 +235,12 @@ export default function ReportScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            (isSubmitting || !validatedAddress) && styles.submitButtonDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !validatedAddress}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
@@ -262,6 +272,9 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: 20,
+  },
+  addressField: {
+    zIndex: 1000,
   },
   label: {
     fontSize: 16,

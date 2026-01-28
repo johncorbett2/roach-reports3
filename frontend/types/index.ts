@@ -46,6 +46,9 @@ export interface CreateReportInput {
   notes?: string;
   latitude?: number;
   longitude?: number;
+  city?: string;
+  state?: string;
+  zip?: string;
 }
 
 export interface CreateBuildingInput {
@@ -74,4 +77,40 @@ export interface MapMarker {
   address: string;
   hasRecentReports: boolean;
   reportCount: number;
+}
+
+// Google Places API types
+export interface PlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
+}
+
+export interface PlaceDetails {
+  place_id: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+  address_components: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+}
+
+export interface ValidatedAddress {
+  formatted_address: string;
+  latitude: number;
+  longitude: number;
+  city: string;
+  state: string;
+  zip: string;
+  place_id: string;
 }

@@ -5,6 +5,8 @@ import {
   CreateReportInput,
   CreateBuildingInput,
   PaginatedResponse,
+  PlacePrediction,
+  ValidatedAddress,
 } from '@/types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
@@ -95,6 +97,34 @@ export const reportsApi = {
       method: 'POST',
       body: JSON.stringify({ image_url: imageUrl }),
     });
+  },
+};
+
+// Places API
+export const placesApi = {
+  autocomplete: async (
+    input: string,
+    sessionToken?: string
+  ): Promise<PlacePrediction[]> => {
+    const params = new URLSearchParams({ input });
+    if (sessionToken) {
+      params.append('sessiontoken', sessionToken);
+    }
+    const response = await request<{ predictions: PlacePrediction[] }>(
+      `/places/autocomplete?${params}`
+    );
+    return response.predictions;
+  },
+
+  getDetails: async (
+    placeId: string,
+    sessionToken?: string
+  ): Promise<ValidatedAddress> => {
+    const params = new URLSearchParams({ place_id: placeId });
+    if (sessionToken) {
+      params.append('sessiontoken', sessionToken);
+    }
+    return request<ValidatedAddress>(`/places/details?${params}`);
   },
 };
 

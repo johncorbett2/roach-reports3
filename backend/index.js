@@ -45,6 +45,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Helper to parse address components from Google Places API
+function parseAddressComponents(components) {
+  const result = { city: '', state: '', zip: '' };
+  for (const component of components) {
+    if (component.types.includes('locality')) {
+      result.city = component.long_name;
+    } else if (component.types.includes('administrative_area_level_1')) {
+      result.state = component.short_name;
+    } else if (component.types.includes('postal_code')) {
+      result.zip = component.long_name;
+    }
+  }
+  return result;
+}
+
 // Root route
 app.get('/', (req, res) => {
   res.json({
@@ -56,9 +71,114 @@ app.get('/', (req, res) => {
       'POST /buildings',
       'GET /reports',
       'POST /reports',
-      'POST /reports/:id/images'
+      'POST /reports/:id/images',
+      'GET /places/autocomplete?input=',
+      'GET /places/details?place_id='
     ]
   });
+});
+
+// ===================
+// PLACES API ENDPOINTS
+// ===================
+
+// Get address autocomplete suggestions
+app.get('/places/autocomplete', async (req, res) => {
+  const { input, sessiontoken } = req.query;
+
+  if (!input || input.length < 2) {
+    return res.status(400).json({ error: 'Input must be at least 2 characters' });
+  }
+
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || apiKey === 'your-google-api-key') {
+    return res.status(500).json({ error: 'Google Maps API key not configured' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      input,
+      key: apiKey,
+      types: 'address',
+      components: 'country:us'
+    });
+    if (sessiontoken) {
+      params.append('sessiontoken', sessiontoken);
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.error('Places Autocomplete error:', data.status, data.error_message);
+      return res.status(500).json({ error: 'Failed to fetch suggestions' });
+    }
+
+    const predictions = (data.predictions || []).map(p => ({
+      place_id: p.place_id,
+      description: p.description,
+      structured_formatting: {
+        main_text: p.structured_formatting?.main_text || '',
+        secondary_text: p.structured_formatting?.secondary_text || ''
+      }
+    }));
+
+    res.json({ predictions });
+  } catch (error) {
+    console.error('Places Autocomplete error:', error);
+    res.status(500).json({ error: 'Failed to fetch suggestions' });
+  }
+});
+
+// Get place details by place_id
+app.get('/places/details', async (req, res) => {
+  const { place_id, sessiontoken } = req.query;
+
+  if (!place_id) {
+    return res.status(400).json({ error: 'place_id is required' });
+  }
+
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || apiKey === 'your-google-api-key') {
+    return res.status(500).json({ error: 'Google Maps API key not configured' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      place_id,
+      key: apiKey,
+      fields: 'place_id,formatted_address,geometry,address_components'
+    });
+    if (sessiontoken) {
+      params.append('sessiontoken', sessiontoken);
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?${params}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK') {
+      console.error('Place Details error:', data.status, data.error_message);
+      return res.status(500).json({ error: 'Failed to fetch place details' });
+    }
+
+    const result = data.result;
+    const parsed = parseAddressComponents(result.address_components || []);
+
+    res.json({
+      place_id: result.place_id,
+      formatted_address: result.formatted_address,
+      latitude: result.geometry.location.lat,
+      longitude: result.geometry.location.lng,
+      city: parsed.city,
+      state: parsed.state,
+      zip: parsed.zip
+    });
+  } catch (error) {
+    console.error('Place Details error:', error);
+    res.status(500).json({ error: 'Failed to fetch place details' });
+  }
 });
 
 // ===================
@@ -232,7 +352,7 @@ app.get('/reports', async (req, res) => {
 
 // Create a new report
 app.post('/reports', async (req, res) => {
-  const { building_id, address, unit_number, has_roaches, severity, notes, latitude, longitude } = req.body;
+  const { building_id, address, unit_number, has_roaches, severity, notes, latitude, longitude, city, state, zip } = req.body;
 
   if (has_roaches === undefined) {
     return res.status(400).json({ error: 'has_roaches is required' });
@@ -264,7 +384,7 @@ app.post('/reports', async (req, res) => {
 
       const { data: newBuilding, error: buildingError } = await supabase
         .from('buildings')
-        .insert([{ address, latitude: finalLat, longitude: finalLng }])
+        .insert([{ address, latitude: finalLat, longitude: finalLng, city, state, zip }])
         .select('id')
         .single();
 
