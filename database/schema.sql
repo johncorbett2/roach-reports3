@@ -10,6 +10,8 @@ CREATE TABLE buildings (
   zip text,
   latitude decimal,
   longitude decimal,
+  bbl text,  -- NYC Borough-Block-Lot (for reliable deduplication against city data)
+  bin text,  -- NYC Building Identification Number
   created_at timestamp DEFAULT now()
 );
 
@@ -21,6 +23,9 @@ CREATE TABLE reports (
   has_roaches boolean NOT NULL,
   severity int CHECK (severity >= 1 AND severity <= 5),
   notes text,
+  source text NOT NULL DEFAULT 'user',  -- 'user' | 'hpd_violation' | '311_complaint'
+  external_id text,                      -- HPD violationid or 311 unique_key
+  report_date timestamptz,              -- original date from source (distinct from created_at)
   created_at timestamp DEFAULT now()
 );
 
@@ -38,6 +43,13 @@ CREATE INDEX idx_buildings_address ON buildings USING gin(to_tsvector('english',
 -- Index for faster building lookups
 CREATE INDEX idx_reports_building_id ON reports(building_id);
 CREATE INDEX idx_reports_created_at ON reports(created_at DESC);
+
+-- Prevent duplicate imports from third-party sources on re-runs
+CREATE UNIQUE INDEX reports_external_source_idx ON reports(source, external_id)
+  WHERE external_id IS NOT NULL;
+
+-- Index for BBL lookups (used during ingestion deduplication)
+CREATE INDEX idx_buildings_bbl ON buildings(bbl) WHERE bbl IS NOT NULL;
 
 -- Index for geographic queries
 CREATE INDEX idx_buildings_location ON buildings(latitude, longitude);
