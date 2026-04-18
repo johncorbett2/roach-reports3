@@ -41,7 +41,7 @@ There are no tests configured.
 
 **Backend** (`backend/.env`):
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — Supabase project credentials
-- `GOOGLE_MAPS_API_KEY` — used for geocoding and Places API
+- `GOOGLE_MAPS_API_KEY` — used for geocoding, Places API, and Street View Static API
 - `NYC_OPEN_DATA_TOKEN` — optional; raises SODA rate limit from ~32 to 1000 req/hr
 - `PORT` — defaults to 4000
 
@@ -62,6 +62,7 @@ There are no tests configured.
 2. Report submission → frontend calls `POST /reports` with address or building_id → backend creates building if needed (geocoding if no coords) → inserts report
 3. Map view → frontend calls `GET /buildings/nearby?lat=&lng=&radius=` → backend converts radius (meters) to degree deltas → Supabase bounding box query
 4. Building detail → `GET /buildings/:id` → backend returns building + nested reports + images + calculated stats in one query
+5. Building street view → `GET /buildings/:id/street-view` → backend fetches from Google Street View Static API and proxies image bytes (API key stays server-side); displayed at top of Building Details screen
 
 ### Key Files
 | File | Purpose |
