@@ -235,6 +235,35 @@ app.get('/buildings/nearby', async (req, res) => {
   res.json(data);
 });
 
+// Street View proxy — keeps API key server-side
+app.get('/buildings/:id/street-view', async (req, res) => {
+  const { id } = req.params;
+
+  const { data: building, error } = await supabase
+    .from('buildings')
+    .select('latitude, longitude, address, city, state')
+    .eq('id', id)
+    .single();
+
+  if (error || !building) return res.status(404).json({ error: 'Building not found' });
+
+  const location = building.latitude && building.longitude
+    ? `${building.latitude},${building.longitude}`
+    : `${building.address}, ${building.city}, ${building.state}`;
+
+  const url = 'https://maps.googleapis.com/maps/api/streetview'
+    + `?size=600x400&location=${encodeURIComponent(location)}`
+    + `&fov=80&pitch=10&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+
+  const svRes = await fetch(url);
+  if (!svRes.ok) return res.status(502).json({ error: 'Street View fetch failed' });
+
+  const buffer = Buffer.from(await svRes.arrayBuffer());
+  res.set('Content-Type', svRes.headers.get('content-type') || 'image/jpeg');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(buffer);
+});
+
 // Get building by ID with all reports
 app.get('/buildings/:id', async (req, res) => {
   const { id } = req.params;

@@ -9,7 +9,7 @@ import {
 import { useLocalSearchParams, Stack } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
-import { buildingsApi } from '@/services/api';
+import { buildingsApi, API_URL } from '@/services/api';
 import { Building, Report } from '@/types';
 
 export default function BuildingDetailScreen() {
@@ -17,6 +17,7 @@ export default function BuildingDetailScreen() {
   const [building, setBuilding] = useState<Building | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [streetViewError, setStreetViewError] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -107,6 +108,14 @@ export default function BuildingDetailScreen() {
             {building.city}, {building.state} {building.zip}
           </Text>
         </View>
+
+        {!streetViewError && (
+          <Image
+            source={{ uri: `${API_URL}/buildings/${building.id}/street-view` }}
+            style={styles.streetViewImage}
+            onError={() => setStreetViewError(true)}
+          />
+        )}
 
         {stats && (
           <View style={styles.statsContainer}>
@@ -235,6 +244,11 @@ export default function BuildingDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  streetViewImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#e5e5e5',
   },
   loadingContainer: {
     flex: 1,
