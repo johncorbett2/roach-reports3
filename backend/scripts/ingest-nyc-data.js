@@ -50,7 +50,7 @@ if (process.env.NYC_OPEN_DATA_TOKEN) {
   sodaHeaders['X-App-Token'] = process.env.NYC_OPEN_DATA_TOKEN;
 }
 
-async function fetchPage(dataset, whereClause, orderField, offset) {
+async function fetchPage(dataset, whereClause, orderField, offset, attempt = 1) {
   const params = new URLSearchParams({
     '$where': whereClause,
     '$order': `${orderField} DESC`,
@@ -61,6 +61,12 @@ async function fetchPage(dataset, whereClause, orderField, offset) {
   const res = await fetch(url, { headers: sodaHeaders });
   if (!res.ok) {
     const body = await res.text();
+    if (res.status === 503 && attempt <= 5) {
+      const delay = attempt * 10000; // 10s, 20s, 30s, 40s, 50s
+      process.stdout.write(`\n  SODA 503, retrying in ${delay / 1000}s (attempt ${attempt}/5)...`);
+      await new Promise(r => setTimeout(r, delay));
+      return fetchPage(dataset, whereClause, orderField, offset, attempt + 1);
+    }
     throw new Error(`SODA ${res.status}: ${body.slice(0, 200)}`);
   }
   return res.json();
@@ -185,8 +191,8 @@ async function upsertReport(buildingId, source, externalId, reportDate) {
 // --- HPD violations ---
 async function ingestHPD() {
   console.log('\n--- HPD Housing Maintenance Code Violations ---');
-  // viol_desc contains strings like "INFESTATION OF ROACHES IN ENTIRE APARTMENT"
-  const where = `upper(viol_desc) like '%ROACH%' AND insp_dt >= '${sinceStr}T00:00:00'`;
+  // novdescription contains strings like "ABATE THE NUISANCE CONSISTING OF ROACHES IN THE ENTIRE APARTMENT"
+  const where = `upper(novdescription) like '%ROACH%' AND inspectiondate >= '${sinceStr}T00:00:00'`;
 
   let offset = 0;
   let totalFetched = 0;
@@ -194,7 +200,7 @@ async function ingestHPD() {
   while (true) {
     let records;
     try {
-      records = await fetchPage(HPD_DATASET, where, 'insp_dt', offset);
+      records = await fetchPage(HPD_DATASET, where, 'inspectiondate', offset);
     } catch (err) {
       console.error(`\nHPD fetch error at offset ${offset}:`, err.message);
       break;
@@ -205,10 +211,7 @@ async function ingestHPD() {
     process.stdout.write(`\r  Fetched ${totalFetched} records, inserted ${stats.reportsInserted}, skipped ${stats.reportsSkipped}...`);
 
     for (const r of records) {
-      const houseNum = r.house_number || r.housenumber || r.apt_street_no;
-      const streetName = r.street_name || r.streetname;
-      const zip = r.zip_code || r.zip;
-      const address = buildAddress(houseNum, streetName, zip);
+      const address = buildAddress(r.housenumber, r.streetname, r.zip);
       if (!address) { stats.errors++; continue; }
 
       const buildingId = await findOrCreateBuilding({
@@ -217,7 +220,7 @@ async function ingestHPD() {
         bin: r.bin || null,
         latitude: r.latitude,
         longitude: r.longitude,
-        zip,
+        zip: r.zip,
       });
       if (!buildingId) continue;
 
@@ -225,7 +228,7 @@ async function ingestHPD() {
         buildingId,
         'hpd_violation',
         r.violationid,
-        r.insp_dt || r.viol_appr_dt || null
+        r.inspectiondate || r.approveddate || null
       );
     }
 
@@ -240,9 +243,9 @@ async function ingestHPD() {
 
 // --- 311 service requests ---
 async function ingest311() {
-  console.log('\n--- NYC 311 Residential Pest Complaints ---');
-  // descriptor for roaches is typically "Roaches" or "ROACHES"
-  const where = `complaint_type='Residential Pest Complaint' AND upper(descriptor) like '%ROACH%' AND created_date >= '${sinceStr}T00:00:00'`;
+  console.log('\n--- NYC 311 UNSANITARY CONDITION / ROACHES Complaints ---');
+  // HPD-routed 311 complaints: complaint_type=UNSANITARY CONDITION, descriptor=PESTS, descriptor_2=ROACHES
+  const where = `complaint_type='UNSANITARY CONDITION' AND descriptor='PESTS' AND descriptor_2='ROACHES' AND created_date >= '${sinceStr}T00:00:00'`;
 
   let offset = 0;
   let totalFetched = 0;
@@ -261,15 +264,16 @@ async function ingest311() {
     process.stdout.write(`\r  Fetched ${totalFetched} records, inserted ${stats.reportsInserted}, skipped ${stats.reportsSkipped}...`);
 
     for (const r of records) {
-      const houseNum = r.house_number || r.housenumber;
-      const streetName = r.street_name || r.streetname || r.cross_street_1;
+      // incident_address is a full "HOUSENUMBER STREETNAME" string; street_name is street only
       const zip = r.incident_zip;
-      const address = buildAddress(houseNum, streetName, zip);
+      const address = r.incident_address
+        ? `${titleCase(r.incident_address)}, New York, NY${zip ? ' ' + zip : ''}`
+        : null;
       if (!address) { stats.errors++; continue; }
 
       const buildingId = await findOrCreateBuilding({
         address,
-        bbl: null,
+        bbl: r.bbl || null,
         bin: null,
         latitude: r.latitude,
         longitude: r.longitude,
