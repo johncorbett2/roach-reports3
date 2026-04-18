@@ -73,7 +73,7 @@ export default function BuildingDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2f95dc" />
+        <ActivityIndicator size="large" color="#1C1C1E" />
       </View>
     );
   }
@@ -253,10 +253,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#2f95dc',
+    backgroundColor: '#1C1C1E',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   retryButtonText: {
     color: '#fff',
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E5E5EA',
   },
   address: {
     fontSize: 24,
@@ -278,10 +278,10 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E5E5EA',
   },
   statItem: {
     flex: 1,
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   noReportsContainer: {
     padding: 40,
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F2F2F7',
     borderRadius: 12,
   },
   noReportsText: {

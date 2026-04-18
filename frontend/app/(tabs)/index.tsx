@@ -153,7 +153,7 @@ export default function SearchScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2f95dc" />
+          <ActivityIndicator size="large" color="#1C1C1E" />
         </View>
       ) : hasSearched ? (
         searchResults.length > 0 ? (
@@ -229,14 +229,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
+    color: '#1C1C1E',
   },
   searchButton: {
-    backgroundColor: '#2f95dc',
+    backgroundColor: '#1C1C1E',
     paddingHorizontal: 20,
     borderRadius: 8,
     justifyContent: 'center',
@@ -259,13 +260,13 @@ const styles = StyleSheet.create({
   buildingItem: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
     elevation: 2,
   },
   statusDot: {
@@ -318,8 +319,8 @@ const styles = StyleSheet.create({
   },
   recentItem: {
     padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     marginBottom: 8,
   },
   recentText: {
@@ -328,14 +329,14 @@ const styles = StyleSheet.create({
   tipContainer: {
     marginTop: 30,
     padding: 16,
-    backgroundColor: '#e8f4fd',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
   tipTitle: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#2f95dc',
+    color: '#1C1C1E',
   },
   tipText: {
     fontSize: 14,

@@ -8,7 +8,9 @@ import {
   Switch,
   Image,
   ActivityIndicator,
+  View as RNView,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 
 import { Text, View } from '@/components/Themed';
@@ -25,6 +27,14 @@ export default function ReportScreen() {
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePhotoPress = () => {
+    Alert.alert('Add Photo', 'Choose an option', [
+      { text: 'Take Photo', onPress: takePhoto },
+      { text: 'Choose from Gallery', onPress: pickImage },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -87,10 +97,7 @@ export default function ReportScreen() {
         zip: validatedAddress.zip,
       });
 
-      // Upload images if any
       for (const imageUri of images) {
-        // Note: In production, you'd upload to Supabase storage first
-        // For now, we'll just pass the local URI
         await reportsApi.uploadImage(report.id, imageUri);
       }
 
@@ -117,52 +124,55 @@ export default function ReportScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Submit a Report</Text>
-        <Text style={styles.subtitle}>
-          Help other renters by reporting your experience
-        </Text>
+    <ScrollView style={styles.scrollView}>
+      <View style={styles.container}>
 
-        <View style={[styles.field, styles.addressField]}>
-          <Text style={styles.label}>Building Address *</Text>
+        {/* Building Address */}
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            Building Address <Text style={styles.required}>*</Text>
+          </Text>
           <AddressAutocomplete
             value={address}
             onChangeText={setAddress}
             onAddressValidated={setValidatedAddress}
+            placeholder="e.g. 123 Main St"
           />
         </View>
 
+        {/* Unit Number */}
         <View style={styles.field}>
-          <Text style={styles.label}>Unit Number (Optional)</Text>
+          <Text style={styles.label}>
+            Unit Number <Text style={styles.labelOptional}>(Optional)</Text>
+          </Text>
           <TextInput
             style={styles.input}
             value={unitNumber}
             onChangeText={setUnitNumber}
-            placeholder="Apt 4B"
-            placeholderTextColor="#999"
+            placeholder="e.g. 4B"
+            placeholderTextColor="#C7C7CC"
           />
         </View>
 
-        <View style={styles.field}>
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Have you seen roaches?</Text>
-            <Switch
-              value={hasRoaches}
-              onValueChange={setHasRoaches}
-              trackColor={{ false: '#ccc', true: '#e74c3c' }}
-              thumbColor={hasRoaches ? '#c0392b' : '#f4f3f4'}
-            />
-          </View>
-          <Text style={styles.switchHint}>
-            {hasRoaches ? 'Yes, I have seen roaches' : 'No roaches seen'}
-          </Text>
+        {/* Roach Activity Toggle */}
+        <View style={styles.toggleCard}>
+          <RNView style={styles.toggleContent}>
+            <Text style={styles.toggleTitle}>Roach Activity?</Text>
+            <Text style={styles.toggleSubtitle}>Have you seen roaches recently?</Text>
+          </RNView>
+          <Switch
+            value={hasRoaches}
+            onValueChange={setHasRoaches}
+            trackColor={{ false: '#E5E5EA', true: '#3A3A3C' }}
+            thumbColor="#FFFFFF"
+          />
         </View>
 
+        {/* Severity (shown when hasRoaches) */}
         {hasRoaches && (
           <View style={styles.field}>
-            <Text style={styles.label}>Severity (1-5)</Text>
-            <View style={styles.severityContainer}>
+            <Text style={styles.label}>Severity</Text>
+            <RNView style={styles.severityContainer}>
               {[1, 2, 3, 4, 5].map((level) => (
                 <TouchableOpacity
                   key={level}
@@ -182,7 +192,7 @@ export default function ReportScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </RNView>
             <Text style={styles.severityHint}>
               {severity === 1 && 'Saw one once'}
               {severity === 2 && 'Occasional sightings'}
@@ -193,47 +203,51 @@ export default function ReportScreen() {
           </View>
         )}
 
+        {/* Additional Notes */}
         <View style={styles.field}>
-          <Text style={styles.label}>Additional Notes (Optional)</Text>
+          <Text style={styles.label}>
+            Additional Notes <Text style={styles.labelOptional}>(Optional)</Text>
+          </Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={notes}
             onChangeText={setNotes}
             placeholder="Any additional details about your experience..."
-            placeholderTextColor="#999"
+            placeholderTextColor="#C7C7CC"
             multiline
             numberOfLines={4}
             textAlignVertical="top"
           />
         </View>
 
+        {/* Add Photo */}
         <View style={styles.field}>
-          <Text style={styles.label}>Photos (Optional)</Text>
-          <View style={styles.imageButtons}>
-            <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
-              <Text style={styles.imageButtonText}>Take Photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-              <Text style={styles.imageButtonText}>Choose from Gallery</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.label}>
+            Add Photo <Text style={styles.labelOptional}>(Optional)</Text>
+          </Text>
+          <TouchableOpacity style={styles.photoArea} onPress={handlePhotoPress} activeOpacity={0.7}>
+            <FontAwesome name="camera" size={32} color="#C7C7CC" />
+            <Text style={styles.photoTitle}>Tap to take photo</Text>
+            <Text style={styles.photoSubtitle}>or upload from gallery</Text>
+          </TouchableOpacity>
           {images.length > 0 && (
-            <View style={styles.imagePreviewContainer}>
+            <RNView style={styles.imagePreviewContainer}>
               {images.map((uri, index) => (
-                <View key={index} style={styles.imagePreview}>
+                <RNView key={index} style={styles.imagePreview}>
                   <Image source={{ uri }} style={styles.previewImage} />
                   <TouchableOpacity
                     style={styles.removeImageButton}
                     onPress={() => removeImage(index)}
                   >
-                    <Text style={styles.removeImageText}>X</Text>
+                    <Text style={styles.removeImageText}>×</Text>
                   </TouchableOpacity>
-                </View>
+                </RNView>
               ))}
-            </View>
+            </RNView>
           )}
         </View>
 
+        {/* Submit Button */}
         <TouchableOpacity
           style={[
             styles.submitButton,
@@ -245,62 +259,83 @@ export default function ReportScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>Submit Report</Text>
+            <RNView style={styles.submitButtonInner}>
+              <FontAwesome name="upload" size={16} color="#fff" style={styles.submitIcon} />
+              <Text style={styles.submitButtonText}>Submit Report</Text>
+            </RNView>
           )}
         </TouchableOpacity>
+
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
+    backgroundColor: '#F2F2F7',
   },
-  content: {
+  container: {
     padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 24,
+    paddingBottom: 48,
   },
   field: {
     marginBottom: 20,
-  },
-  addressField: {
-    zIndex: 1000,
+    zIndex: 0,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1C1C1E',
     marginBottom: 8,
+  },
+  labelOptional: {
+    fontWeight: '400',
+    color: '#8E8E93',
+  },
+  required: {
+    color: '#FF3B30',
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: '#E5E5EA',
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
+    color: '#1C1C1E',
   },
   textArea: {
     height: 100,
   },
-  switchRow: {
+  toggleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  switchHint: {
+  toggleContent: {
+    flex: 1,
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  toggleSubtitle: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    color: '#8E8E93',
+    marginTop: 2,
   },
   severityContainer: {
     flexDirection: 'row',
@@ -310,45 +345,50 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#ddd',
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
   severityButtonActive: {
-    borderColor: '#e74c3c',
-    backgroundColor: '#e74c3c',
+    borderColor: '#1C1C1E',
+    backgroundColor: '#1C1C1E',
   },
   severityText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
+    fontWeight: '600',
+    color: '#8E8E93',
   },
   severityTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
   severityHint: {
     fontSize: 14,
-    color: '#666',
+    color: '#8E8E93',
     marginTop: 8,
     textAlign: 'center',
   },
-  imageButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  imageButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2f95dc',
+  photoArea: {
+    borderWidth: 1.5,
+    borderColor: '#C7C7CC',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 36,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  imageButtonText: {
-    color: '#2f95dc',
+  photoTitle: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#1C1C1E',
+    marginTop: 12,
+  },
+  photoSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 4,
   },
   imagePreviewContainer: {
     flexDirection: 'row',
@@ -368,7 +408,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#8E8E93',
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -378,22 +418,29 @@ const styles = StyleSheet.create({
   removeImageText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 16,
+    lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#1C1C1E',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 8,
   },
   submitButtonDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#C7C7CC',
+  },
+  submitButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  submitIcon: {
+    marginRight: 8,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });
