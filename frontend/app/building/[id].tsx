@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Image,
   TouchableOpacity,
+  Modal,
+  Pressable,
+  Dimensions,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 
@@ -18,6 +23,25 @@ export default function BuildingDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [streetViewError, setStreetViewError] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const translateY = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, { dy, dx }) => Math.abs(dy) > Math.abs(dx) && dy > 5,
+      onPanResponderMove: (_, { dy }) => { if (dy > 0) translateY.setValue(dy); },
+      onPanResponderRelease: (_, { dy, vy }) => {
+        if (dy > 120 || vy > 1.2) {
+          Animated.timing(translateY, { toValue: 600, duration: 200, useNativeDriver: true }).start(
+            () => setSelectedImage(null)
+          );
+        } else {
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
+
+  useEffect(() => { translateY.setValue(0); }, [selectedImage]);
 
   useEffect(() => {
     if (id) {
@@ -97,7 +121,7 @@ export default function BuildingDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Building Details',
+          title: '',
           headerBackTitle: 'Back',
         }}
       />
@@ -161,6 +185,26 @@ export default function BuildingDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+        <Pressable style={styles.imageModalBackdrop} onPress={() => setSelectedImage(null)}>
+          <Animated.View
+            style={[styles.imageModalContent, { transform: [{ translateY }] }]}
+            {...panResponder.panHandlers}
+          >
+            <Pressable style={styles.imageModalClose} onPress={() => setSelectedImage(null)}>
+              <Text style={styles.imageModalCloseText}>✕</Text>
+            </Pressable>
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.imageModalImage}
+                resizeMode="contain"
+              />
+            )}
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </>
   );
 
@@ -221,11 +265,12 @@ export default function BuildingDetailScreen() {
         {images.length > 0 && (
           <View style={styles.imagesContainer}>
             {images.slice(0, expanded ? images.length : 2).map((img) => (
-              <Image
-                key={img.id}
-                source={{ uri: img.image_url }}
-                style={styles.reportImage}
-              />
+              <TouchableOpacity key={img.id} onPress={() => setSelectedImage(img.image_url)} activeOpacity={0.8}>
+                <Image
+                  source={{ uri: img.image_url }}
+                  style={styles.reportImage}
+                />
+              </TouchableOpacity>
             ))}
             {!expanded && images.length > 2 && (
               <View style={styles.moreImagesOverlay}>
@@ -431,5 +476,30 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 12,
     textAlign: 'right',
+  },
+  imageModalBackdrop: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+  },
+  imageModalContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  imageModalClose: {
+    position: 'absolute',
+    top: 56,
+    right: 16,
+    zIndex: 10,
+    padding: 24,
+  },
+  imageModalCloseText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  imageModalImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 });
