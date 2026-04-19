@@ -27,6 +27,7 @@ const sinceArg = sinceIdx >= 0 ? args[sinceIdx + 1] : null;
 const sourceIdx = args.indexOf('--source');
 const sourceFilter = sourceIdx >= 0 ? args[sourceIdx + 1] : 'all';
 const dryRun = args.includes('--dry-run');
+const skipGeocode = args.includes('--skip-geocode');
 
 const defaultSinceDate = new Date();
 defaultSinceDate.setFullYear(defaultSinceDate.getFullYear() - 3);
@@ -79,12 +80,30 @@ function titleCase(str) {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function buildAddress(houseNum, streetName, zip) {
+function buildAddress(houseNum, streetName, zip, city = 'New York') {
   const h = (houseNum || '').trim();
   const s = (streetName || '').trim();
   if (!h || !s) return null;
   const addr = `${h} ${titleCase(s)}`;
-  return zip ? `${addr}, New York, NY ${zip}` : `${addr}, New York, NY`;
+  return zip ? `${addr}, ${city}, NY ${zip}` : `${addr}, ${city}, NY`;
+}
+
+async function getCityFromCoords(lat, lng) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || skipGeocode) return 'New York';
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.status !== 'OK') return 'New York';
+    const components = data.results[0]?.address_components || [];
+    // Prefer sublocality (Long Island City, Astoria, etc.) over locality (Queens, New York)
+    const sublocality = components.find(c => c.types.includes('sublocality_level_1'))?.long_name;
+    const locality = components.find(c => c.types.includes('locality'))?.long_name;
+    return sublocality || locality || 'New York';
+  } catch {
+    return 'New York';
+  }
 }
 
 // --- Stats ---
@@ -137,11 +156,17 @@ async function findOrCreateBuilding({ address, bbl, bin, latitude, longitude, zi
     return 'dry-run-building-id';
   }
 
+  const city = (latitude && longitude) ? await getCityFromCoords(latitude, longitude) : 'New York';
+  // If geocoding returned a different city, fix it in the address string too
+  const storedAddress = city !== 'New York'
+    ? address.replace(/, New York, NY/i, `, ${city}, NY`)
+    : address;
+
   const { data: newBuilding, error } = await supabase
     .from('buildings')
     .insert([{
-      address,
-      city: 'New York',
+      address: storedAddress,
+      city,
       state: 'NY',
       zip: zip || null,
       latitude: latitude ? parseFloat(latitude) : null,

@@ -434,27 +434,48 @@ app.post('/reports', async (req, res) => {
     if (existing && existing.length > 0) {
       finalBuildingId = existing[0].id;
     } else {
-      // Geocode address if coordinates not provided
-      let finalLat = latitude;
-      let finalLng = longitude;
-      if (!finalLat || !finalLng) {
-        const coords = await geocodeAddress(address);
-        if (coords) {
-          finalLat = coords.latitude;
-          finalLng = coords.longitude;
+      // Proximity fallback: check for an existing building within 50m using Google Places coordinates
+      if (latitude && longitude) {
+        const latDelta = 50 / 111000;
+        const lngDelta = 50 / (111000 * Math.cos(parseFloat(latitude) * Math.PI / 180));
+        const { data: nearby } = await supabase
+          .from('buildings')
+          .select('id')
+          .gte('latitude', parseFloat(latitude) - latDelta)
+          .lte('latitude', parseFloat(latitude) + latDelta)
+          .gte('longitude', parseFloat(longitude) - lngDelta)
+          .lte('longitude', parseFloat(longitude) + lngDelta)
+          .limit(1);
+        if (nearby?.length) {
+          finalBuildingId = nearby[0].id;
+          // Update with accurate Google Places values (address, city, zip)
+          await supabase.from('buildings').update({ address, city, state, zip }).eq('id', finalBuildingId);
         }
       }
 
-      const { data: newBuilding, error: buildingError } = await supabase
-        .from('buildings')
-        .insert([{ address, latitude: finalLat, longitude: finalLng, city, state, zip }])
-        .select('id')
-        .single();
+      if (!finalBuildingId) {
+        // No match found — geocode if needed and create new building
+        let finalLat = latitude;
+        let finalLng = longitude;
+        if (!finalLat || !finalLng) {
+          const coords = await geocodeAddress(address);
+          if (coords) {
+            finalLat = coords.latitude;
+            finalLng = coords.longitude;
+          }
+        }
 
-      if (buildingError) {
-        return res.status(400).json({ error: 'Failed to create building: ' + buildingError.message });
+        const { data: newBuilding, error: buildingError } = await supabase
+          .from('buildings')
+          .insert([{ address, latitude: finalLat, longitude: finalLng, city, state, zip }])
+          .select('id')
+          .single();
+
+        if (buildingError) {
+          return res.status(400).json({ error: 'Failed to create building: ' + buildingError.message });
+        }
+        finalBuildingId = newBuilding.id;
       }
-      finalBuildingId = newBuilding.id;
     }
   }
 
