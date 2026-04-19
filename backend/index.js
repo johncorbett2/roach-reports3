@@ -222,7 +222,7 @@ app.get('/buildings/nearby', async (req, res) => {
   const { data, error } = await supabase
     .from('buildings')
     .select(`
-      id, address, city, state, latitude, longitude,
+      *,
       reports (has_roaches, report_date, created_at)
     `)
     .gte('latitude', parseFloat(lat) - latDelta)
