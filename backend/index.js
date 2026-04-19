@@ -223,7 +223,7 @@ app.get('/buildings/nearby', async (req, res) => {
     .from('buildings')
     .select(`
       *,
-      reports (id, has_roaches, severity, created_at)
+      reports (id, has_roaches, severity, source, report_date, created_at)
     `)
     .gte('latitude', parseFloat(lat) - latDelta)
     .lte('latitude', parseFloat(lat) + latDelta)
@@ -278,6 +278,8 @@ app.get('/buildings/:id', async (req, res) => {
         has_roaches,
         severity,
         notes,
+        source,
+        report_date,
         created_at,
         report_images (id, image_url)
       )

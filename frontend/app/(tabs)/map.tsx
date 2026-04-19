@@ -116,7 +116,7 @@ export default function MapScreen() {
     if (reports.length === 0) return '#999';
 
     const recentReports = reports.filter((r) => {
-      const reportDate = new Date(r.created_at);
+      const reportDate = new Date(r.report_date || r.created_at);
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       return reportDate > sixMonthsAgo && r.has_roaches;
@@ -175,17 +175,26 @@ export default function MapScreen() {
       >
         {buildings
           .filter((b) => b.latitude && b.longitude)
-          .map((building) => (
-            <Marker
-              key={building.id}
-              coordinate={{
-                latitude: building.latitude!,
-                longitude: building.longitude!,
-              }}
-              pinColor={getMarkerColor(building)}
-              onPress={() => handleMarkerPress(building)}
-            />
-          ))}
+          .map((building) => {
+            const color = getMarkerColor(building);
+            const isRoach = color === '#e74c3c';
+            return (
+              <Marker
+                key={building.id}
+                coordinate={{
+                  latitude: building.latitude!,
+                  longitude: building.longitude!,
+                }}
+                pinColor={isRoach ? undefined : color}
+                anchor={isRoach ? { x: 0.5, y: 0.5 } : undefined}
+                onPress={() => handleMarkerPress(building)}
+              >
+                {isRoach && (
+                  <Text style={styles.roachMarker}>🪳</Text>
+                )}
+              </Marker>
+            );
+          })}
       </MapView>
 
       {locationError && (
@@ -372,5 +381,8 @@ const styles = StyleSheet.create({
     color: '#2f95dc',
     marginTop: 12,
     textAlign: 'center',
+  },
+  roachMarker: {
+    fontSize: 28,
   },
 });

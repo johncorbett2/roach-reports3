@@ -63,6 +63,8 @@ export default function BuildingDetailScreen() {
     }
   };
 
+  const getDisplayDate = (report: Report) => report.report_date || report.created_at;
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -230,7 +232,7 @@ export default function BuildingDetailScreen() {
               {report.has_roaches ? 'Roaches reported' : 'No roaches'}
             </Text>
           </View>
-          <Text style={styles.reportDate}>{getRelativeTime(report.created_at)}</Text>
+          <Text style={styles.reportDate}>{getRelativeTime(getDisplayDate(report))}</Text>
         </View>
 
         {report.unit_number && (
@@ -280,7 +282,7 @@ export default function BuildingDetailScreen() {
           </View>
         )}
 
-        <Text style={styles.reportTimestamp}>{formatDate(report.created_at)}</Text>
+        <Text style={styles.reportTimestamp}>{formatDate(getDisplayDate(report))}</Text>
       </TouchableOpacity>
     );
   }

@@ -25,6 +25,8 @@ export interface Report {
   has_roaches: boolean;
   severity: number | null;
   notes: string | null;
+  source: 'user' | 'hpd_violation' | '311_complaint' | null;
+  report_date: string | null;
   created_at: string;
   buildings?: Building;
   report_images?: ReportImage[];
