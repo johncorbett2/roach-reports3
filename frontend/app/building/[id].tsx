@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5DD',
+    backgroundColor: '#FFFFFF',
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#C7AD7F',
@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
   statItem: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   statDivider: {
     width: 1,
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   reportCard: {
-    backgroundColor: '#F5F5DD',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -400,10 +401,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    backgroundColor: 'transparent',
   },
   reportMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   roachIndicator: {
     width: 10,
@@ -428,6 +431,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    backgroundColor: 'transparent',
   },
   severityLabel: {
     fontSize: 14,
@@ -454,6 +458,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
+    backgroundColor: 'transparent',
   },
   reportImage: {
     width: 80,

@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   buildingItem: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#F5F5DD',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -278,6 +278,7 @@ const styles = StyleSheet.create({
   },
   buildingInfo: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   buildingAddress: {
     fontSize: 16,
