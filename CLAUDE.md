@@ -33,6 +33,15 @@ node backend/scripts/ingest-nyc-data.js --since 2026-01-01 # incremental
 node backend/scripts/ingest-nyc-data.js --source hpd       # HPD violations only
 node backend/scripts/ingest-nyc-data.js --source 311       # 311 complaints only
 node backend/scripts/ingest-nyc-data.js --dry-run          # preview without writing
+node backend/scripts/ingest-nyc-data.js --skip-geocode     # skip reverse geocoding (faster for bulk loads)
+```
+
+### Building Data Migration
+One-time (already run) script to merge duplicate buildings and fix city names:
+```bash
+node backend/scripts/fix-building-cities.js --dry-run      # preview both phases
+node backend/scripts/fix-building-cities.js --phase a      # merge near-duplicates only
+node backend/scripts/fix-building-cities.js --phase b      # fix 'New York' city labels only
 ```
 
 There are no tests configured.
@@ -82,7 +91,14 @@ There are no tests configured.
 RLS is enabled on all tables with public read/insert (no auth layer).
 
 ### Building Deduplication
-Buildings are matched case-insensitively on address string. For NYC open data imports, BBL (Borough-Block-Lot) is preferred for deduplication. A partial unique index on `(source, external_id) WHERE external_id IS NOT NULL` prevents duplicate ingestion runs.
+Three-layer matching when a report is submitted:
+1. **BBL** (Borough-Block-Lot) — most reliable; used for HPD/311 imports
+2. **Address string** — case-insensitive `ilike` match
+3. **Coordinate proximity** — 50m bounding box fallback; used when a user submits via Google Places for a building that was ingested with a slightly different address (e.g. "New York" vs correct borough name). If a nearby building is found, the report attaches to it and the building's address/city fields are updated with the more accurate Google Places values.
+
+A partial unique index on `(source, external_id) WHERE external_id IS NOT NULL` prevents duplicate ingestion runs.
+
+**City names**: HPD/311 data hardcodes city as "New York" for all boroughs. The ingest script reverse-geocodes each new building's coordinates to get the correct locality (e.g. "Long Island City", "Brooklyn"). `fix-building-cities.js` Phase B was run to retroactively correct existing records.
 
 ### NYC Data Sources
 The ingestion script pulls from two NYC Open Data SODA API datasets:
