@@ -128,7 +128,7 @@ export default function ReportScreen() {
       <View style={styles.container}>
 
         {/* Building Address */}
-        <View style={styles.field}>
+        <View style={[styles.field, styles.fieldAddress]}>
           <Text style={styles.label}>
             Building Address <Text style={styles.required}>*</Text>
           </Text>
@@ -283,6 +283,9 @@ const styles = StyleSheet.create({
   field: {
     marginBottom: 20,
     zIndex: 0,
+  },
+  fieldAddress: {
+    zIndex: 100,
   },
   label: {
     fontSize: 16,

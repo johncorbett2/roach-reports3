@@ -229,7 +229,7 @@ app.get('/buildings/nearby', async (req, res) => {
     .lte('latitude', parseFloat(lat) + latDelta)
     .gte('longitude', parseFloat(lng) - lngDelta)
     .lte('longitude', parseFloat(lng) + lngDelta)
-    .limit(100);
+    .limit(500);
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);

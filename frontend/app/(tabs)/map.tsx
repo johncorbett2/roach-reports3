@@ -35,21 +35,19 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     initializeLocation();
   }, []);
-
-  useEffect(() => {
-    loadBuildingsInRegion();
-  }, [region]);
 
   const initializeLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationError('Location permission denied. Showing NYC by default.');
-        setIsLoading(false);
+        loadBuildingsInRegion(NYC_CENTER);
         return;
       }
 
@@ -61,27 +59,33 @@ export default function MapScreen() {
         longitudeDelta: LONGITUDE_DELTA,
       };
       setRegion(newRegion);
+      loadBuildingsInRegion(newRegion);
     } catch (error) {
       console.error('Failed to get location:', error);
       setLocationError('Could not get your location. Showing NYC by default.');
+      loadBuildingsInRegion(NYC_CENTER);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadBuildingsInRegion = async () => {
+  const loadBuildingsInRegion = async (targetRegion: Region) => {
+    const requestId = ++requestIdRef.current;
     try {
       const radius = Math.max(
-        region.latitudeDelta * 111000,
-        region.longitudeDelta * 111000 * Math.cos(region.latitude * Math.PI / 180)
+        targetRegion.latitudeDelta * 111000,
+        targetRegion.longitudeDelta * 111000 * Math.cos(targetRegion.latitude * Math.PI / 180)
       );
 
       const data = await buildingsApi.getNearby(
-        region.latitude,
-        region.longitude,
+        targetRegion.latitude,
+        targetRegion.longitude,
         radius
       );
-      setBuildings(data);
+      // Discard stale responses from earlier in-flight requests
+      if (requestId === requestIdRef.current) {
+        setBuildings(data);
+      }
     } catch (error) {
       console.error('Failed to load buildings:', error);
     }
@@ -90,6 +94,11 @@ export default function MapScreen() {
   const handleRegionChangeComplete = (newRegion: Region) => {
     setRegion(newRegion);
     setSelectedBuilding(null);
+    // Debounce so we don't fire a fetch on every animation frame during zoom/pan
+    if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+    fetchDebounceRef.current = setTimeout(() => {
+      loadBuildingsInRegion(newRegion);
+    }, 300);
   };
 
   const handleMarkerPress = (building: Building) => {
