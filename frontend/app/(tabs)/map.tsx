@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   StyleSheet,
   Dimensions,
@@ -112,26 +112,18 @@ export default function MapScreen() {
   };
 
   const getMarkerColor = (building: Building) => {
-    const reports = building.reports || [];
-    if (reports.length === 0) return '#999';
-
-    const recentReports = reports.filter((r) => {
-      const reportDate = new Date(r.report_date || r.created_at);
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      return reportDate > sixMonthsAgo && r.has_roaches;
-    });
-
-    if (recentReports.length > 0) return '#e74c3c';
-    const anyPositive = reports.some((r) => r.has_roaches);
-    if (anyPositive) return '#f39c12';
-    return '#27ae60';
+    if (building.marker_status) {
+      if (building.marker_status === 'recent_roach') return '#e74c3c';
+      if (building.marker_status === 'older_roach') return '#f39c12';
+      if (building.marker_status === 'no_roach') return '#27ae60';
+      return '#999';
+    }
+    return '#999';
   };
 
   const getReportSummary = (building: Building) => {
-    const reports = building.reports || [];
-    const total = reports.length;
-    const positive = reports.filter((r) => r.has_roaches).length;
+    const total = building.report_count ?? 0;
+    const positive = building.positive_count ?? 0;
 
     if (total === 0) return 'No reports yet';
     if (positive === 0) return `${total} report${total > 1 ? 's' : ''} - No roaches`;
@@ -153,6 +145,32 @@ export default function MapScreen() {
     }
   };
 
+  const markers = useMemo(() =>
+    buildings
+      .filter((b) => b.latitude && b.longitude)
+      .map((building) => {
+        const color = getMarkerColor(building);
+        const isRoach = color === '#e74c3c';
+        return (
+          <Marker
+            key={building.id}
+            coordinate={{
+              latitude: building.latitude!,
+              longitude: building.longitude!,
+            }}
+            pinColor={isRoach ? undefined : color}
+            anchor={isRoach ? { x: 0.5, y: 0.5 } : undefined}
+            onPress={() => handleMarkerPress(building)}
+          >
+            {isRoach && (
+              <Text style={styles.roachMarker}>🪳</Text>
+            )}
+          </Marker>
+        );
+      }),
+  [buildings]
+  );
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -173,28 +191,7 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton={false}
       >
-        {buildings
-          .filter((b) => b.latitude && b.longitude)
-          .map((building) => {
-            const color = getMarkerColor(building);
-            const isRoach = color === '#e74c3c';
-            return (
-              <Marker
-                key={building.id}
-                coordinate={{
-                  latitude: building.latitude!,
-                  longitude: building.longitude!,
-                }}
-                pinColor={isRoach ? undefined : color}
-                anchor={isRoach ? { x: 0.5, y: 0.5 } : undefined}
-                onPress={() => handleMarkerPress(building)}
-              >
-                {isRoach && (
-                  <Text style={styles.roachMarker}>🪳</Text>
-                )}
-              </Marker>
-            );
-          })}
+        {markers}
       </MapView>
 
       {locationError && (

@@ -222,17 +222,49 @@ app.get('/buildings/nearby', async (req, res) => {
   const { data, error } = await supabase
     .from('buildings')
     .select(`
-      *,
-      reports (id, has_roaches, severity, source, report_date, created_at)
+      id, address, city, state, latitude, longitude,
+      reports (has_roaches, report_date, created_at)
     `)
     .gte('latitude', parseFloat(lat) - latDelta)
     .lte('latitude', parseFloat(lat) + latDelta)
     .gte('longitude', parseFloat(lng) - lngDelta)
     .lte('longitude', parseFloat(lng) + lngDelta)
-    .limit(500);
+    .limit(300);
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+
+  const centerLat = parseFloat(lat);
+  const centerLng = parseFloat(lng);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const processed = (data || [])
+    .map(b => {
+      const reports = b.reports || [];
+      const hasRecentRoach = reports.some(r =>
+        r.has_roaches && new Date(r.report_date || r.created_at) > sixMonthsAgo
+      );
+      const hasAnyRoach = reports.some(r => r.has_roaches);
+      return {
+        id: b.id,
+        address: b.address,
+        city: b.city,
+        state: b.state,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        marker_status: hasRecentRoach ? 'recent_roach' : hasAnyRoach ? 'older_roach' : reports.length > 0 ? 'no_roach' : 'none',
+        report_count: reports.length,
+        positive_count: reports.filter(r => r.has_roaches).length,
+      };
+    })
+    .sort((a, b) => {
+      const dA = Math.pow(a.latitude - centerLat, 2) + Math.pow(a.longitude - centerLng, 2);
+      const dB = Math.pow(b.latitude - centerLat, 2) + Math.pow(b.longitude - centerLng, 2);
+      return dA - dB;
+    })
+    .slice(0, 150);
+
+  res.json(processed);
 });
 
 // Street View proxy — keeps API key server-side

@@ -6,9 +6,13 @@ export interface Building {
   zip: string | null;
   latitude: number | null;
   longitude: number | null;
-  created_at: string;
+  created_at?: string;
   reports?: Report[];
   stats?: BuildingStats;
+  // Computed fields returned by /buildings/nearby (not present on full building detail)
+  marker_status?: 'recent_roach' | 'older_roach' | 'no_roach' | 'none';
+  report_count?: number;
+  positive_count?: number;
 }
 
 export interface BuildingStats {
