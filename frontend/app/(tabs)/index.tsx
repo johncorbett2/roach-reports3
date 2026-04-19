@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   buildingItem: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5DD',
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',

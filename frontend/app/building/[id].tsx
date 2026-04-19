@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5DD',
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#C7AD7F',
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   reportCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5DD',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
