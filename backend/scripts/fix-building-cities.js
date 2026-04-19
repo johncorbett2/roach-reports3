@@ -52,18 +52,46 @@ function extractHouseNumber(address) {
   return match ? match[1] : null;
 }
 
+// Extract the first meaningful token of the street name — the part that must
+// match for two nearby buildings to be considered the same address.
+//   "11-21 47th Rd, ..."   → "47"   (ordinal suffix stripped)
+//   "11-21 47 Road, ..."   → "47"
+//   "1011 Sheridan Ave, …" → "sheridan"
+//   "1011 Carroll Pl, …"   → "carroll"
+//   "352 Hooper St, …"     → "hooper"
+// Returns null if the key can't be determined.
+function extractStreetKey(address) {
+  // Remove house number prefix (including hyphenated forms)
+  const withoutNum = address.replace(/^\d+(?:-\d+)?\s+/, '');
+  // Drop city/state/zip — everything from the first comma
+  const streetPart = withoutNum.split(',')[0].trim().toLowerCase();
+  const firstToken = streetPart.split(/\s+/)[0];
+  if (!firstToken) return null;
+  // Strip ordinal suffixes from numbers (47th → 47, 1st → 1)
+  return firstToken.replace(/^(\d+)(?:st|nd|rd|th)$/i, '$1');
+}
+
 // --- Phase A: Merge near-duplicate buildings ---
 async function phaseA() {
   console.log('\n=== Phase A: Merging near-duplicate buildings ===');
 
-  const { data: buildings, error } = await supabase
-    .from('buildings')
-    .select('id, address, city, zip, bbl, latitude, longitude, created_at')
-    .not('latitude', 'is', null)
-    .not('longitude', 'is', null)
-    .order('created_at', { ascending: true });
-
-  if (error) { console.error('Failed to load buildings:', error.message); return; }
+  const PAGE = 1000;
+  const buildings = [];
+  let page = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('buildings')
+      .select('id, address, city, zip, bbl, latitude, longitude, created_at')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(page * PAGE, (page + 1) * PAGE - 1);
+    if (error) { console.error('Failed to load buildings:', error.message); return; }
+    if (!data?.length) break;
+    buildings.push(...data);
+    if (data.length < PAGE) break;
+    page++;
+  }
 
   console.log(`Loaded ${buildings.length} buildings with coordinates.`);
 
@@ -97,6 +125,16 @@ async function phaseA() {
       const numA = extractHouseNumber(building.address);
       const numB = extractHouseNumber(duplicate.address);
       if (!numA || !numB || numA !== numB) {
+        skippedDifferentNumber++;
+        continue;
+      }
+
+      // Require matching street key — prevents merging buildings on intersecting streets
+      // with the same house number (e.g. "1011 Sheridan Ave" ≠ "1011 Carroll Pl").
+      // Minor abbreviation/ordinal variants are normalised: "47th Rd" → "47" == "47 Road" → "47".
+      const keyA = extractStreetKey(building.address);
+      const keyB = extractStreetKey(duplicate.address);
+      if (!keyA || !keyB || keyA !== keyB) {
         skippedDifferentNumber++;
         continue;
       }
@@ -155,14 +193,23 @@ async function phaseB() {
     return;
   }
 
-  const { data: buildings, error } = await supabase
-    .from('buildings')
-    .select('id, address, city, latitude, longitude')
-    .eq('city', 'New York')
-    .not('latitude', 'is', null)
-    .not('longitude', 'is', null);
-
-  if (error) { console.error('Failed to load buildings:', error.message); return; }
+  const PAGE = 1000;
+  const buildings = [];
+  let page = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('buildings')
+      .select('id, address, city, latitude, longitude')
+      .eq('city', 'New York')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+      .range(page * PAGE, (page + 1) * PAGE - 1);
+    if (error) { console.error('Failed to load buildings:', error.message); return; }
+    if (!data?.length) break;
+    buildings.push(...data);
+    if (data.length < PAGE) break;
+    page++;
+  }
 
   console.log(`Found ${buildings.length} buildings with city = 'New York' to check.`);
 
