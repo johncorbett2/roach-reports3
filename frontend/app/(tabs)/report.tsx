@@ -150,7 +150,7 @@ export default function ReportScreen() {
             value={unitNumber}
             onChangeText={setUnitNumber}
             placeholder="e.g. 4B"
-            placeholderTextColor="#C7C7CC"
+            placeholderTextColor="#C7AD7F"
           />
         </View>
 
@@ -163,7 +163,7 @@ export default function ReportScreen() {
           <Switch
             value={hasRoaches}
             onValueChange={setHasRoaches}
-            trackColor={{ false: '#E5E5EA', true: '#3A3A3C' }}
+            trackColor={{ false: '#C7AD7F', true: '#AE6E4E' }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -213,7 +213,7 @@ export default function ReportScreen() {
             value={notes}
             onChangeText={setNotes}
             placeholder="Any additional details about your experience..."
-            placeholderTextColor="#C7C7CC"
+            placeholderTextColor="#C7AD7F"
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -226,7 +226,7 @@ export default function ReportScreen() {
             Add Photo <Text style={styles.labelOptional}>(Optional)</Text>
           </Text>
           <TouchableOpacity style={styles.photoArea} onPress={handlePhotoPress} activeOpacity={0.7}>
-            <FontAwesome name="camera" size={32} color="#C7C7CC" />
+            <FontAwesome name="camera" size={32} color="#C7AD7F" />
             <Text style={styles.photoTitle}>Tap to take photo</Text>
             <Text style={styles.photoSubtitle}>or upload from gallery</Text>
           </TouchableOpacity>
@@ -274,7 +274,7 @@ export default function ReportScreen() {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F5F5DD',
   },
   container: {
     padding: 20,
@@ -290,12 +290,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#8B4411',
     marginBottom: 8,
   },
   labelOptional: {
     fontWeight: '400',
-    color: '#8E8E93',
+    color: '#A57A5A',
   },
   required: {
     color: '#FF3B30',
@@ -303,12 +303,12 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#C7AD7F',
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
-    color: '#1C1C1E',
+    color: '#8B4411',
   },
   textArea: {
     height: 100,
@@ -333,11 +333,11 @@ const styles = StyleSheet.create({
   toggleTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#8B4411',
   },
   toggleSubtitle: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#A57A5A',
     marginTop: 2,
   },
   severityContainer: {
@@ -349,32 +349,32 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 1.5,
-    borderColor: '#E5E5EA',
+    borderColor: '#C7AD7F',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   severityButtonActive: {
-    borderColor: '#1C1C1E',
-    backgroundColor: '#1C1C1E',
+    borderColor: '#AE6E4E',
+    backgroundColor: '#AE6E4E',
   },
   severityText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: '#A57A5A',
   },
   severityTextActive: {
-    color: '#FFFFFF',
+    color: '#F5F5DD',
   },
   severityHint: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#A57A5A',
     marginTop: 8,
     textAlign: 'center',
   },
   photoArea: {
     borderWidth: 1.5,
-    borderColor: '#C7C7CC',
+    borderColor: '#C7AD7F',
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 36,
@@ -385,12 +385,12 @@ const styles = StyleSheet.create({
   photoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#8B4411',
     marginTop: 12,
   },
   photoSubtitle: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: '#A57A5A',
     marginTop: 4,
   },
   imagePreviewContainer: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#8E8E93',
+    backgroundColor: '#A57A5A',
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -425,14 +425,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#AE6E4E',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: '#C7AD7F',
   },
   submitButtonInner: {
     flexDirection: 'row',
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   submitButtonText: {
-    color: '#FFFFFF',
+    color: '#F5F5DD',
     fontSize: 17,
     fontWeight: '600',
   },

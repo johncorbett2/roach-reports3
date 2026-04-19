@@ -100,7 +100,7 @@ export default function BuildingDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1C1C1E" />
+        <ActivityIndicator size="large" color="#AE6E4E" />
       </View>
     );
   }
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#AE6E4E',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#C7AD7F',
   },
   address: {
     fontSize: 24,
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 16,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 4,
   },
   statsContainer: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#C7AD7F',
   },
   statItem: {
     flex: 1,
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: '#C7AD7F',
   },
   statValue: {
     fontSize: 28,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 4,
   },
   reportsSection: {
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   noReportsContainer: {
     padding: 40,
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F5F5DD',
     borderRadius: 12,
   },
   noReportsText: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   noReportsSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 8,
   },
   reportCard: {
@@ -417,11 +417,11 @@ const styles = StyleSheet.create({
   },
   reportDate: {
     fontSize: 12,
-    color: '#888',
+    color: '#A57A5A',
   },
   unitNumber: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
     marginBottom: 8,
   },
   severityContainer: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   },
   severityLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
   },
   severityBadge: {
     paddingHorizontal: 8,
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   reportNotes: {
     fontSize: 14,
-    color: '#444',
+    color: '#8B4411',
     lineHeight: 20,
     marginTop: 8,
   },
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   reportTimestamp: {
     fontSize: 12,
-    color: '#999',
+    color: '#C7AD7F',
     marginTop: 12,
     textAlign: 'right',
   },

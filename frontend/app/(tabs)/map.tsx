@@ -19,6 +19,24 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.01;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
+function isWithinCache(
+  region: Region,
+  cache: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null
+): boolean {
+  if (!cache) return false;
+  const halfLat = region.latitudeDelta / 2;
+  const halfLng = region.longitudeDelta / 2;
+  const vMinLat = region.latitude - halfLat;
+  const vMaxLat = region.latitude + halfLat;
+  const vMinLng = region.longitude - halfLng;
+  const vMaxLng = region.longitude + halfLng;
+  const overlapLat = Math.min(vMaxLat, cache.maxLat) - Math.max(vMinLat, cache.minLat);
+  const overlapLng = Math.min(vMaxLng, cache.maxLng) - Math.max(vMinLng, cache.minLng);
+  const viewportArea = region.latitudeDelta * region.longitudeDelta;
+  const overlapArea = Math.max(0, overlapLat) * Math.max(0, overlapLng);
+  return overlapArea / viewportArea > 0.70;
+}
+
 // NYC default location
 const NYC_CENTER = {
   latitude: 40.7128,
@@ -35,8 +53,12 @@ export default function MapScreen() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const fetchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const requestIdRef = useRef(0);
+  const [hasMoved, setHasMoved] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const cachedBoundsRef = useRef<{
+    minLat: number; maxLat: number; minLng: number; maxLng: number;
+  } | null>(null);
 
   useEffect(() => {
     initializeLocation();
@@ -70,7 +92,10 @@ export default function MapScreen() {
   };
 
   const loadBuildingsInRegion = async (targetRegion: Region) => {
+    if (isWithinCache(targetRegion, cachedBoundsRef.current)) return;
+
     const requestId = ++requestIdRef.current;
+    setIsSearching(true);
     try {
       const radius = Math.max(
         targetRegion.latitudeDelta * 111000,
@@ -82,23 +107,26 @@ export default function MapScreen() {
         targetRegion.longitude,
         radius
       );
-      // Discard stale responses from earlier in-flight requests
       if (requestId === requestIdRef.current) {
         setBuildings(data);
+        cachedBoundsRef.current = {
+          minLat: targetRegion.latitude - targetRegion.latitudeDelta,
+          maxLat: targetRegion.latitude + targetRegion.latitudeDelta,
+          minLng: targetRegion.longitude - targetRegion.longitudeDelta,
+          maxLng: targetRegion.longitude + targetRegion.longitudeDelta,
+        };
       }
     } catch (error) {
       console.error('Failed to load buildings:', error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
   const handleRegionChangeComplete = (newRegion: Region) => {
     setRegion(newRegion);
     setSelectedBuilding(null);
-    // Debounce so we don't fire a fetch on every animation frame during zoom/pan
-    if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
-    fetchDebounceRef.current = setTimeout(() => {
-      loadBuildingsInRegion(newRegion);
-    }, 300);
+    setHasMoved(true);
   };
 
   const handleMarkerPress = (building: Building) => {
@@ -174,7 +202,7 @@ export default function MapScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2f95dc" />
+        <ActivityIndicator size="large" color="#AE6E4E" />
         <Text style={styles.loadingText}>Loading map...</Text>
       </View>
     );
@@ -198,6 +226,22 @@ export default function MapScreen() {
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
         </View>
+      )}
+
+      {hasMoved && (
+        <TouchableOpacity
+          style={styles.searchAreaButton}
+          onPress={() => {
+            setHasMoved(false);
+            loadBuildingsInRegion(region);
+          }}
+          disabled={isSearching}
+        >
+          {isSearching
+            ? <ActivityIndicator size="small" color="#fff" />
+            : <Text style={styles.searchAreaButtonText}>Search this area</Text>
+          }
+        </TouchableOpacity>
       )}
 
       <TouchableOpacity style={styles.locationButton} onPress={centerOnLocation}>
@@ -279,11 +323,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
   },
+  searchAreaButton: {
+    position: 'absolute',
+    top: 65,
+    alignSelf: 'center',
+    backgroundColor: '#AE6E4E',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  searchAreaButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   locationButton: {
     position: 'absolute',
     top: 60,
     right: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#8B4411',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -294,14 +359,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   locationButtonText: {
-    color: '#2f95dc',
+    color: '#F5F5DD',
     fontWeight: '600',
   },
   legend: {
     position: 'absolute',
     bottom: 20,
     left: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(245, 245, 221, 0.95)',
     padding: 12,
     borderRadius: 8,
     shadowColor: '#000',
@@ -323,14 +388,14 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#333',
+    color: '#8B4411',
   },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5DD',
     padding: 20,
     paddingBottom: 30,
     borderTopLeftRadius: 20,
@@ -344,7 +409,7 @@ const styles = StyleSheet.create({
   bottomSheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: '#C7AD7F',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -355,7 +420,7 @@ const styles = StyleSheet.create({
   },
   buildingLocation: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 4,
   },
   reportInfo: {
@@ -371,11 +436,11 @@ const styles = StyleSheet.create({
   },
   reportText: {
     fontSize: 14,
-    color: '#444',
+    color: '#8B4411',
   },
   tapToView: {
     fontSize: 12,
-    color: '#2f95dc',
+    color: '#AE6E4E',
     marginTop: 12,
     textAlign: 'center',
   },

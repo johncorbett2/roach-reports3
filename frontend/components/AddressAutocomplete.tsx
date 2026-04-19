@@ -117,7 +117,7 @@ export default function AddressAutocomplete({
           value={value}
           onChangeText={handleTextChange}
           placeholder={placeholder}
-          placeholderTextColor="#999"
+          placeholderTextColor="#C7AD7F"
           onFocus={() => {
             if (predictions.length > 0) {
               setShowDropdown(true);
@@ -163,12 +163,12 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#C7AD7F',
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
-    color: '#1C1C1E',
+    color: '#8B4411',
   },
   inputValidated: {
     borderColor: '#27ae60',
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#C7AD7F',
     borderTopWidth: 0,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
@@ -213,16 +213,16 @@ const styles = StyleSheet.create({
   predictionItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: '#F5F5DD',
   },
   predictionMain: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#333',
+    color: '#8B4411',
   },
   predictionSecondary: {
     fontSize: 13,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 2,
   },
   validatedHint: {

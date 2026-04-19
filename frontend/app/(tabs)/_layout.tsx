@@ -18,7 +18,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#F5F5DD',
+        tabBarInactiveTintColor: '#CC9767',
+        tabBarStyle: { backgroundColor: '#8B4411', borderTopColor: '#6B3410' },
         headerShown: false,
       }}>
       <Tabs.Screen
@@ -26,7 +28,8 @@ export default function TabLayout() {
         options={{
           title: '',
           headerShown: true,
-          headerStyle: { backgroundColor: '#ffffff' },
+          headerStyle: { backgroundColor: '#8B4411' },
+          headerTintColor: '#F5F5DD',
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
         }}
       />
@@ -43,7 +46,8 @@ export default function TabLayout() {
         options={{
           title: '',
           headerShown: true,
-          headerStyle: { backgroundColor: '#ffffff' },
+          headerStyle: { backgroundColor: '#8B4411' },
+          headerTintColor: '#F5F5DD',
           tabBarIcon: ({ color }) => <TabBarIcon name="plus-circle" color={color} />,
         }}
       />

@@ -140,7 +140,7 @@ export default function SearchScreen() {
           onChangeText={setSearchQuery}
           onSubmitEditing={() => handleSearch(searchQuery)}
           placeholder="Enter an address..."
-          placeholderTextColor="#999"
+          placeholderTextColor="#C7AD7F"
           returnKeyType="search"
         />
         <TouchableOpacity
@@ -153,7 +153,7 @@ export default function SearchScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1C1C1E" />
+          <ActivityIndicator size="large" color="#AE6E4E" />
         </View>
       ) : hasSearched ? (
         searchResults.length > 0 ? (
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 4,
   },
   searchContainer: {
@@ -229,21 +229,21 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: '#C7AD7F',
     borderRadius: 10,
     padding: 12,
     fontSize: 16,
     backgroundColor: '#FFFFFF',
-    color: '#1C1C1E',
+    color: '#8B4411',
   },
   searchButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#AE6E4E',
     paddingHorizontal: 20,
     borderRadius: 8,
     justifyContent: 'center',
   },
   searchButtonText: {
-    color: '#fff',
+    color: '#F5F5DD',
     fontWeight: '600',
   },
   loadingContainer: {
@@ -285,12 +285,12 @@ const styles = StyleSheet.create({
   },
   buildingLocation: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 2,
   },
   reportSummary: {
     fontSize: 14,
-    color: '#888',
+    color: '#A57A5A',
     marginTop: 4,
   },
   emptyContainer: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#666',
+    color: '#A57A5A',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -336,11 +336,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#1C1C1E',
+    color: '#8B4411',
   },
   tipText: {
     fontSize: 14,
-    color: '#555',
+    color: '#A57A5A',
     marginBottom: 6,
     lineHeight: 20,
   },
