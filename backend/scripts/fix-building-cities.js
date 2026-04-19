@@ -44,6 +44,14 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+// Extract the leading house number from an address string, including hyphenated
+// forms (e.g. "11-21" from "11-21 47th Rd" or "2070" from "2070 Arthur Ave").
+// Returns null if no number found.
+function extractHouseNumber(address) {
+  const match = address.match(/^(\d+(?:-\d+)?)\b/);
+  return match ? match[1] : null;
+}
+
 // --- Phase A: Merge near-duplicate buildings ---
 async function phaseA() {
   console.log('\n=== Phase A: Merging near-duplicate buildings ===');
@@ -61,6 +69,7 @@ async function phaseA() {
 
   const merged = new Set(); // IDs that have already been consumed as losers
   let mergeCount = 0;
+  let skippedDifferentNumber = 0;
 
   for (const building of buildings) {
     if (merged.has(building.id)) continue;
@@ -81,6 +90,16 @@ async function phaseA() {
 
     for (const duplicate of nearby) {
       if (merged.has(duplicate.id)) continue;
+
+      // Require matching house number — proximity alone is not enough in dense NYC.
+      // "11-21 47th Rd" and "11-21 47 Road" → same building (house number "11-21" matches).
+      // "2070 Arthur Ave" and "2078 Arthur Ave" → different buildings (2070 ≠ 2078).
+      const numA = extractHouseNumber(building.address);
+      const numB = extractHouseNumber(duplicate.address);
+      if (!numA || !numB || numA !== numB) {
+        skippedDifferentNumber++;
+        continue;
+      }
 
       // Winner = the one with BBL; tie-break = older created_at (current `building` is always older due to ORDER BY)
       const winner = building.bbl ? building : (duplicate.bbl ? duplicate : building);
@@ -124,7 +143,7 @@ async function phaseA() {
     }
   }
 
-  console.log(`\nPhase A complete. ${mergeCount} duplicate(s) merged${dryRun ? ' (dry run)' : ''}.`);
+  console.log(`\nPhase A complete. ${mergeCount} duplicate(s) merged, ${skippedDifferentNumber} nearby-but-different-number pairs skipped${dryRun ? ' (dry run)' : ''}.`);
 }
 
 // --- Phase B: Fix remaining 'New York' city labels via reverse geocoding ---
