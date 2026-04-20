@@ -28,8 +28,8 @@ export default function TabLayout() {
         options={{
           title: '',
           headerShown: true,
-          headerStyle: { backgroundColor: '#8B4411' },
-          headerTintColor: '#F5F5DD',
+          headerStyle: { backgroundColor: '#F5F5DD' },
+          headerTintColor: '#8B4411',
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
         }}
       />
@@ -46,8 +46,8 @@ export default function TabLayout() {
         options={{
           title: '',
           headerShown: true,
-          headerStyle: { backgroundColor: '#8B4411' },
-          headerTintColor: '#F5F5DD',
+          headerStyle: { backgroundColor: '#F5F5DD' },
+          headerTintColor: '#8B4411',
           tabBarIcon: ({ color }) => <TabBarIcon name="plus-circle" color={color} />,
         }}
       />

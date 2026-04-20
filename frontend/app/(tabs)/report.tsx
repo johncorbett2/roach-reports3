@@ -17,8 +17,11 @@ import { Text, View } from '@/components/Themed';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { reportsApi } from '@/services/api';
 import { ValidatedAddress } from '@/types';
+import { usePostHog } from 'posthog-react-native';
+import { Events } from '@/services/analytics';
 
 export default function ReportScreen() {
+  const posthog = usePostHog();
   const [address, setAddress] = useState('');
   const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
   const [unitNumber, setUnitNumber] = useState('');
@@ -101,6 +104,12 @@ export default function ReportScreen() {
         await reportsApi.uploadImage(report.id, imageUri);
       }
 
+      posthog?.capture(Events.REPORT_SUBMITTED, {
+        has_roaches: hasRoaches,
+        severity: hasRoaches ? severity : undefined,
+        has_images: images.length > 0,
+        has_notes: !!notes.trim(),
+      });
       Alert.alert(
         'Success',
         'Your report has been submitted. Thank you for helping the community!',
@@ -163,7 +172,7 @@ export default function ReportScreen() {
           <Switch
             value={hasRoaches}
             onValueChange={setHasRoaches}
-            trackColor={{ false: '#C7AD7F', true: '#AE6E4E' }}
+            trackColor={{ false: '#A57A5A', true: '#AE6E4E' }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -321,6 +330,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#C7AD7F',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,

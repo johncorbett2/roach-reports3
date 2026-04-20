@@ -16,9 +16,12 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import { buildingsApi, API_URL } from '@/services/api';
 import { Building, Report } from '@/types';
+import { usePostHog } from 'posthog-react-native';
+import { Events } from '@/services/analytics';
 
 export default function BuildingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const posthog = usePostHog();
   const [building, setBuilding] = useState<Building | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +58,16 @@ export default function BuildingDetailScreen() {
       setError(null);
       const data = await buildingsApi.getById(id!);
       setBuilding(data);
+      const recentCutoff = new Date();
+      recentCutoff.setMonth(recentCutoff.getMonth() - 6);
+      const hasRecentRoaches = data.reports?.some((r: Report) =>
+        r.has_roaches && new Date(r.report_date || r.created_at) > recentCutoff
+      ) ?? false;
+      posthog?.capture(Events.BUILDING_VIEWED, {
+        building_id: data.id,
+        report_count: data.reports?.length ?? 0,
+        has_recent_roaches: hasRecentRoaches,
+      });
     } catch (err) {
       setError('Failed to load building details');
       console.error(err);

@@ -12,12 +12,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from '@/components/Themed';
 import { buildingsApi } from '@/services/api';
 import { Building } from '@/types';
+import { usePostHog } from 'posthog-react-native';
+import { Events } from '@/services/analytics';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 5;
 
 export default function SearchScreen() {
   const router = useRouter();
+  const posthog = usePostHog();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Building[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -66,6 +69,7 @@ export default function SearchScreen() {
       const results = await buildingsApi.search(query);
       setSearchResults(results);
       saveRecentSearch(query);
+      posthog?.capture(Events.BUILDING_SEARCHED, { result_count: results.length });
     } catch (error) {
       console.error('Search failed:', error);
       setSearchResults([]);

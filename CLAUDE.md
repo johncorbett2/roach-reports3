@@ -57,6 +57,8 @@ There are no tests configured.
 **Frontend** (`frontend/.env`):
 - `EXPO_PUBLIC_API_URL` — backend URL (e.g. `http://localhost:4000`)
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` — for the map view
+- `EXPO_PUBLIC_SENTRY_DSN` — Sentry DSN for error monitoring (get from sentry.io project settings)
+- `EXPO_PUBLIC_POSTHOG_KEY` — PostHog API key for product analytics (get from posthog.com project settings)
 
 ## Architecture
 
@@ -65,6 +67,8 @@ There are no tests configured.
 - **Backend**: Node.js + Express 5, plain JS
 - **Database**: Supabase (PostgreSQL), accessed via `@supabase/supabase-js` with the service role key
 - **Maps/Geocoding**: Google Maps Geocoding API + Google Places API (proxied through the backend)
+- **Error monitoring**: Sentry (`@sentry/react-native`) — initialized in `frontend/app/_layout.tsx`, root component wrapped with `Sentry.wrap()`
+- **Product analytics**: PostHog (`posthog-react-native`) — `PostHogProvider` in `_layout.tsx`; events captured via `usePostHog()` hook in screens
 
 ### Data Flow
 1. Address input → `AddressAutocomplete` component debounces and calls `/places/autocomplete` → backend proxies to Google Places → user selects → `/places/details` validates and returns lat/lng
@@ -78,10 +82,22 @@ There are no tests configured.
 |------|---------|
 | `backend/index.js` | All Express routes and the `geocodeAddress()` helper |
 | `frontend/services/api.ts` | Centralized API client (`buildingsApi`, `reportsApi`, `placesApi`) |
+| `frontend/services/analytics.ts` | Sentry re-export and PostHog event name constants |
 | `frontend/types/index.ts` | Shared TypeScript types for buildings, reports, images |
 | `frontend/components/AddressAutocomplete.tsx` | Address input with Google Places validation and session token management |
 | `database/schema.sql` | Canonical schema — source of truth for table structure |
 | `backend/scripts/ingest-nyc-data.js` | Bulk/incremental import from NYC HPD and 311 SODA APIs |
+
+### Analytics Events
+Events are defined as constants in `frontend/services/analytics.ts` and captured via `usePostHog()`:
+| Event | Where | Key properties |
+|-------|-------|----------------|
+| `onboarding_choice` | `onboarding.tsx` | `choice: 'search' \| 'submit'` |
+| `building_searched` | `(tabs)/index.tsx` | `result_count` |
+| `building_viewed` | `building/[id].tsx` | `building_id`, `report_count`, `has_recent_roaches` |
+| `report_submitted` | `(tabs)/report.tsx` | `has_roaches`, `severity`, `has_images`, `has_notes` |
+
+PostHog automatically tracks DAU, session length, and unique users from any event. % user-generated vs. imported records is best queried directly from Supabase: `SELECT source, COUNT(*) FROM reports GROUP BY source`.
 
 ### Database Schema
 - **buildings**: `id`, `address`, `city`, `state`, `zip`, `latitude`, `longitude`, `bbl`, `bin`
