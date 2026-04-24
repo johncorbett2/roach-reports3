@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
@@ -10,13 +9,39 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Text, View } from '@/components/Themed';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { buildingsApi } from '@/services/api';
-import { Building } from '@/types';
+import { Building, ValidatedAddress } from '@/types';
 import { usePostHog } from 'posthog-react-native';
 import { Events } from '@/services/analytics';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 5;
+
+// Derives a precise DB search query from a Google Places formatted_address.
+// For named streets:   "332 Keap Street, Brooklyn, NY"       → "332 Keap"
+// For numbered streets: "401 East 34th Street, New York, NY" → "401 East 34"
+//   (strips ordinal suffix so "34th" matches HPD-style "34" stored in DB)
+function buildSearchQuery(formattedAddress: string): string {
+  const streetPart = formattedAddress.split(',')[0];
+  const tokens = streetPart.split(' ');
+  if (tokens.length < 2) return streetPart;
+
+  const directionals = new Set(['north', 'south', 'east', 'west', 'n', 's', 'e', 'w']);
+
+  let i = 1;
+  while (i < tokens.length && directionals.has(tokens[i].toLowerCase())) {
+    i++;
+  }
+
+  const streetToken = tokens[i] ?? '';
+  if (/^\d/.test(streetToken)) {
+    const streetNum = streetToken.replace(/(st|nd|rd|th)$/i, '');
+    return [...tokens.slice(0, i), streetNum].join(' ');
+  }
+
+  return tokens.slice(0, i + 1).join(' ');
+}
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -26,6 +51,7 @@ export default function SearchScreen() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
 
   useEffect(() => {
     loadRecentSearches();
@@ -55,16 +81,14 @@ export default function SearchScreen() {
     }
   };
 
-  const handleSearch = useCallback(async (query: string) => {
+  const handleSearchByText = useCallback(async (query: string) => {
     if (query.length < 2) {
       setSearchResults([]);
       setHasSearched(false);
       return;
     }
-
     setIsLoading(true);
     setHasSearched(true);
-
     try {
       const results = await buildingsApi.search(query);
       setSearchResults(results);
@@ -78,13 +102,21 @@ export default function SearchScreen() {
     }
   }, [recentSearches]);
 
+  const handleAddressValidated = useCallback((address: ValidatedAddress | null) => {
+    setValidatedAddress(address);
+    if (!address) {
+      setSearchResults([]);
+      setHasSearched(false);
+    }
+  }, []);
+
   const handleBuildingPress = (building: Building) => {
     router.push(`/building/${building.id}`);
   };
 
   const handleRecentSearchPress = (query: string) => {
     setSearchQuery(query);
-    handleSearch(query);
+    handleSearchByText(query);
   };
 
   const getReportSummary = (building: Building) => {
@@ -138,18 +170,22 @@ export default function SearchScreen() {
       </View>
 
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={() => handleSearch(searchQuery)}
-          placeholder="Enter an address..."
-          placeholderTextColor="#C7AD7F"
-          returnKeyType="search"
-        />
+        <View style={styles.autocompleteWrapper}>
+          <AddressAutocomplete
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onAddressValidated={handleAddressValidated}
+            placeholder="Enter an address..."
+          />
+        </View>
         <TouchableOpacity
           style={styles.searchButton}
-          onPress={() => handleSearch(searchQuery)}
+          onPress={() => {
+            const query = validatedAddress
+              ? buildSearchQuery(validatedAddress.formatted_address)
+              : searchQuery;
+            handleSearchByText(query);
+          }}
         >
           <Text style={styles.searchButtonText}>Search</Text>
         </TouchableOpacity>
@@ -229,20 +265,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 10,
+    zIndex: 100,
+    alignItems: 'flex-start',
   },
-  searchInput: {
+  autocompleteWrapper: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#C7AD7F',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-    color: '#8B4411',
   },
   searchButton: {
     backgroundColor: '#AE6E4E',
     paddingHorizontal: 20,
+    paddingVertical: 14,
     borderRadius: 8,
     justifyContent: 'center',
   },
