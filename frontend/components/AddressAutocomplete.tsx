@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
+  Keyboard,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -72,6 +73,7 @@ export default function AddressAutocomplete({
   };
 
   const handleSelectPrediction = async (prediction: PlacePrediction) => {
+    Keyboard.dismiss();
     setShowDropdown(false);
     setPredictions([]);
     onChangeText(prediction.description);
@@ -155,10 +157,12 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 1000,
+    backgroundColor: 'transparent',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   input: {
     flex: 1,

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Keyboard,
   StyleSheet,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
@@ -163,6 +165,7 @@ export default function SearchScreen() {
   );
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Roach Reports</Text>
@@ -203,6 +206,7 @@ export default function SearchScreen() {
             renderItem={renderBuildingItem}
             style={styles.resultsList}
             contentContainerStyle={styles.resultsContent}
+            keyboardShouldPersistTaps="handled"
           />
         ) : (
           <View style={styles.emptyContainer}>
@@ -241,6 +245,7 @@ export default function SearchScreen() {
         </View>
       )}
     </View>
+    </TouchableWithoutFeedback>
   );
 }
 

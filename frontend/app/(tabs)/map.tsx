@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
+  Keyboard,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
@@ -11,8 +12,9 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { buildingsApi } from '@/services/api';
-import { Building } from '@/types';
+import { Building, ValidatedAddress } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -37,6 +39,17 @@ function isWithinCache(
   return overlapArea / viewportArea > 0.70;
 }
 
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // NYC default location
 const NYC_CENTER = {
   latitude: 40.7128,
@@ -58,6 +71,12 @@ export default function MapScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const cachedBoundsRef = useRef<{
     minLat: number; maxLat: number; minLng: number; maxLng: number;
+  } | null>(null);
+  const isProgrammaticNavigationRef = useRef(false);
+
+  const [mapSearchText, setMapSearchText] = useState('');
+  const [searchedLocation, setSearchedLocation] = useState<{
+    address: string; city: string; state: string;
   } | null>(null);
 
   useEffect(() => {
@@ -91,8 +110,8 @@ export default function MapScreen() {
     }
   };
 
-  const loadBuildingsInRegion = async (targetRegion: Region) => {
-    if (isWithinCache(targetRegion, cachedBoundsRef.current)) return;
+  const loadBuildingsInRegion = async (targetRegion: Region): Promise<Building[]> => {
+    if (isWithinCache(targetRegion, cachedBoundsRef.current)) return buildings;
 
     const requestId = ++requestIdRef.current;
     setIsSearching(true);
@@ -115,9 +134,12 @@ export default function MapScreen() {
           minLng: targetRegion.longitude - targetRegion.longitudeDelta,
           maxLng: targetRegion.longitude + targetRegion.longitudeDelta,
         };
+        return data;
       }
+      return buildings;
     } catch (error) {
       console.error('Failed to load buildings:', error);
+      return buildings;
     } finally {
       setIsSearching(false);
     }
@@ -125,12 +147,17 @@ export default function MapScreen() {
 
   const handleRegionChangeComplete = (newRegion: Region) => {
     setRegion(newRegion);
-    setSelectedBuilding(null);
-    setHasMoved(true);
+    if (!isProgrammaticNavigationRef.current) {
+      setSelectedBuilding(null);
+      setSearchedLocation(null);
+      setHasMoved(true);
+    }
+    isProgrammaticNavigationRef.current = false;
   };
 
   const handleMarkerPress = (building: Building) => {
     setSelectedBuilding(building);
+    setSearchedLocation(null);
   };
 
   const handleBuildingPress = () => {
@@ -138,6 +165,49 @@ export default function MapScreen() {
       router.push(`/building/${selectedBuilding.id}`);
     }
   };
+
+  const handleMapAddressValidated = useCallback(async (address: ValidatedAddress | null) => {
+    if (!address) {
+      setSearchedLocation(null);
+      return;
+    }
+
+    const newRegion = {
+      latitude: address.latitude,
+      longitude: address.longitude,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA,
+    };
+
+    isProgrammaticNavigationRef.current = true;
+    mapRef.current?.animateToRegion(newRegion, 500);
+    setRegion(newRegion);
+    setSelectedBuilding(null);
+    setSearchedLocation(null);
+    setHasMoved(false);
+    cachedBoundsRef.current = null;
+
+    const loadedBuildings = await loadBuildingsInRegion(newRegion);
+
+    const candidates = loadedBuildings
+      .filter(b => b.latitude && b.longitude)
+      .map(b => ({
+        building: b,
+        dist: haversineDistance(address.latitude, address.longitude, b.latitude!, b.longitude!),
+      }))
+      .sort((a, b) => a.dist - b.dist);
+
+    const closest = candidates[0];
+    if (closest && closest.dist < 100) {
+      setSelectedBuilding(closest.building);
+    } else {
+      setSearchedLocation({
+        address: address.formatted_address,
+        city: address.city,
+        state: address.state,
+      });
+    }
+  }, []);
 
   const getMarkerColor = (building: Building) => {
     if (building.marker_status) {
@@ -167,6 +237,7 @@ export default function MapScreen() {
         latitudeDelta: LATITUDE_DELTA,
         longitudeDelta: LONGITUDE_DELTA,
       };
+      isProgrammaticNavigationRef.current = true;
       mapRef.current?.animateToRegion(newRegion, 500);
     } catch (error) {
       console.error('Failed to get location:', error);
@@ -216,6 +287,7 @@ export default function MapScreen() {
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
         onRegionChangeComplete={handleRegionChangeComplete}
+        onPress={() => Keyboard.dismiss()}
         showsUserLocation
         showsMyLocationButton={false}
       >
@@ -227,6 +299,15 @@ export default function MapScreen() {
           <Text style={styles.errorText}>{locationError}</Text>
         </View>
       )}
+
+      <View style={styles.searchBarContainer}>
+        <AddressAutocomplete
+          value={mapSearchText}
+          onChangeText={setMapSearchText}
+          onAddressValidated={handleMapAddressValidated}
+          placeholder="Search an address..."
+        />
+      </View>
 
       {hasMoved && (
         <TouchableOpacity
@@ -244,10 +325,6 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.locationButton} onPress={centerOnLocation}>
-        <Text style={styles.locationButtonText}>My Location</Text>
-      </TouchableOpacity>
-
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#e74c3c' }]} />
@@ -262,6 +339,10 @@ export default function MapScreen() {
           <Text style={styles.legendText}>No roaches</Text>
         </View>
       </View>
+
+      <TouchableOpacity style={styles.locationButton} onPress={centerOnLocation}>
+        <Text style={styles.locationButtonText}>My Location</Text>
+      </TouchableOpacity>
 
       {selectedBuilding && (
         <TouchableOpacity
@@ -287,6 +368,20 @@ export default function MapScreen() {
           </View>
           <Text style={styles.tapToView}>Tap to view details</Text>
         </TouchableOpacity>
+      )}
+
+      {!selectedBuilding && searchedLocation && (
+        <View style={styles.bottomSheet}>
+          <View style={styles.bottomSheetHandle} />
+          <Text style={styles.buildingAddress}>{searchedLocation.address}</Text>
+          <Text style={styles.buildingLocation}>
+            {searchedLocation.city}, {searchedLocation.state}
+          </Text>
+          <View style={styles.reportInfo}>
+            <View style={[styles.statusDot, { backgroundColor: '#999' }]} />
+            <Text style={styles.reportText}>No reports at this address</Text>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -323,9 +418,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
   },
+  searchBarContainer: {
+    position: 'absolute',
+    top: 55,
+    left: 10,
+    right: 10,
+    zIndex: 1001,
+    elevation: 10,
+    backgroundColor: 'transparent',
+  },
   searchAreaButton: {
     position: 'absolute',
-    top: 65,
+    top: 120,
     alignSelf: 'center',
     backgroundColor: '#AE6E4E',
     paddingHorizontal: 20,
@@ -346,7 +450,7 @@ const styles = StyleSheet.create({
   },
   locationButton: {
     position: 'absolute',
-    top: 60,
+    bottom: 170,
     right: 10,
     backgroundColor: '#8B4411',
     paddingHorizontal: 16,
