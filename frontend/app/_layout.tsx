@@ -2,17 +2,26 @@ import * as Sentry from '@sentry/react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import SplashOverlay from '@/components/SplashOverlay';
 
 const ONBOARDING_KEY = 'onboarding_complete';
+
+function NavigationTracker() {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+  useEffect(() => {
+    posthog?.screen(pathname);
+  }, [pathname]);
+  return null;
+}
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -72,6 +81,7 @@ function RootLayoutNav() {
       apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY ?? ''}
       options={{ host: 'https://us.i.posthog.com' }}
     >
+      <NavigationTracker />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
