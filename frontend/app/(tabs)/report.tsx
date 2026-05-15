@@ -283,7 +283,7 @@ export default function ReportScreen() {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: '#F5F5DD',
+    backgroundColor: '#FFFFFF',
   },
   container: {
     padding: 20,

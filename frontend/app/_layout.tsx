@@ -87,7 +87,7 @@ function RootLayoutNav() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="splash" options={{ headerShown: false }} />
-          <Stack.Screen name="building/[id]" options={{ headerShown: true, headerStyle: { backgroundColor: '#F5F5DD' }, headerTintColor: '#8B4411' }} />
+          <Stack.Screen name="building/[id]" options={{ headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         {showSplash && <SplashOverlay onComplete={handleSplashComplete} />}

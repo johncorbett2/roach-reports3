@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   noReportsContainer: {
     padding: 40,
     alignItems: 'center',
-    backgroundColor: '#F5F5DD',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
   },
   noReportsText: {
