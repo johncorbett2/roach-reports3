@@ -27,7 +27,6 @@ export default function AddressAutocomplete({
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isValidated, setIsValidated] = useState(false);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -60,7 +59,6 @@ export default function AddressAutocomplete({
 
   const handleTextChange = (text: string) => {
     onChangeText(text);
-    setIsValidated(false);
     onAddressValidated(null);
 
     if (debounceRef.current) {
@@ -73,6 +71,9 @@ export default function AddressAutocomplete({
   };
 
   const handleSelectPrediction = async (prediction: PlacePrediction) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
     Keyboard.dismiss();
     setShowDropdown(false);
     setPredictions([]);
@@ -84,13 +85,10 @@ export default function AddressAutocomplete({
         prediction.place_id,
         sessionTokenRef.current
       );
-      setIsValidated(true);
       onAddressValidated(details);
-      // Generate new session token for next search
       sessionTokenRef.current = generateSessionToken();
     } catch (error) {
       console.error('Failed to get place details:', error);
-      setIsValidated(false);
       onAddressValidated(null);
     } finally {
       setIsFetchingDetails(false);
@@ -115,7 +113,7 @@ export default function AddressAutocomplete({
     <View style={styles.container}>
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, isValidated && styles.inputValidated]}
+          style={styles.input}
           value={value}
           onChangeText={handleTextChange}
           placeholder={placeholder}
@@ -129,11 +127,6 @@ export default function AddressAutocomplete({
         {(isLoading || isFetchingDetails) && (
           <ActivityIndicator style={styles.loader} size="small" color="#666" />
         )}
-        {isValidated && !isLoading && !isFetchingDetails && (
-          <View style={styles.checkmark}>
-            <Text style={styles.checkmarkText}>✓</Text>
-          </View>
-        )}
       </View>
       {showDropdown && predictions.length > 0 && (
         <View style={styles.dropdown}>
@@ -145,9 +138,6 @@ export default function AddressAutocomplete({
             scrollEnabled={false}
           />
         </View>
-      )}
-      {isValidated && (
-        <Text style={styles.validatedHint}>Address verified</Text>
       )}
     </View>
   );
@@ -174,27 +164,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     color: '#8B4411',
   },
-  inputValidated: {
-    borderColor: '#27ae60',
-  },
   loader: {
     position: 'absolute',
     right: 12,
-  },
-  checkmark: {
-    position: 'absolute',
-    right: 12,
-    backgroundColor: '#27ae60',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmarkText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
   },
   dropdown: {
     position: 'absolute',
@@ -228,10 +200,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#A57A5A',
     marginTop: 2,
-  },
-  validatedHint: {
-    fontSize: 12,
-    color: '#27ae60',
-    marginTop: 4,
   },
 });
