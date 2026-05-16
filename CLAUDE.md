@@ -44,7 +44,20 @@ node backend/scripts/fix-building-cities.js --phase a      # merge near-duplicat
 node backend/scripts/fix-building-cities.js --phase b      # fix 'New York' city labels only
 ```
 
-There are no tests configured.
+### Tests
+```bash
+cd backend
+npm test          # run all tests
+npm run test:watch  # re-run on file changes
+```
+
+Tests use **Jest** + **Supertest** and mock Supabase entirely — no real database or network calls. 22 tests across two files:
+- `backend/__tests__/buildings.test.js` — `GET /buildings/nearby` (marker_status logic, sorting, 150-building limit), `GET /buildings/:id` (stats computation), `GET /buildings/search` (input validation)
+- `backend/__tests__/reports.test.js` — `POST /reports` (all three building-lookup paths, severity nulling, input validation)
+
+The shared Supabase mock lives in `backend/__tests__/helpers/mockSupabase.js`. It uses a queue: call `queueResponse({ data, error })` once per awaited Supabase chain in the order the route triggers them.
+
+CI runs on every push and pull request to `main` via `.github/workflows/test.yml` (GitHub Actions).
 
 ## Environment Variables
 
@@ -80,7 +93,8 @@ There are no tests configured.
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `backend/index.js` | All Express routes and the `geocodeAddress()` helper |
+| `backend/app.js` | All Express routes and the `geocodeAddress()` helper |
+| `backend/index.js` | Server entry point — imports `app.js` and calls `app.listen()` |
 | `frontend/services/api.ts` | Centralized API client (`buildingsApi`, `reportsApi`, `placesApi`) |
 | `frontend/services/analytics.ts` | Sentry re-export and PostHog event name constants |
 | `frontend/types/index.ts` | Shared TypeScript types for buildings, reports, images |
