@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
@@ -30,6 +31,33 @@ export default function ReportScreen() {
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const params = useLocalSearchParams<{
+    prefill_address?: string;
+    prefill_city?: string;
+    prefill_state?: string;
+    prefill_zip?: string;
+    prefill_lat?: string;
+    prefill_lng?: string;
+    prefill_place_id?: string;
+  }>();
+
+  useEffect(() => {
+    if (params.prefill_address) {
+      setAddress(params.prefill_address);
+      if (params.prefill_lat && params.prefill_lng) {
+        setValidatedAddress({
+          formatted_address: params.prefill_address,
+          latitude: parseFloat(params.prefill_lat),
+          longitude: parseFloat(params.prefill_lng),
+          city: params.prefill_city ?? '',
+          state: params.prefill_state ?? '',
+          zip: params.prefill_zip ?? '',
+          place_id: params.prefill_place_id ?? '',
+        });
+      }
+    }
+  }, [params.prefill_address]);
 
   const handlePhotoPress = () => {
     Alert.alert('Add Photo', 'Choose an option', [

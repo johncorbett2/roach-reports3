@@ -5,8 +5,12 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   FlatList,
+  ScrollView,
+  Image,
   ActivityIndicator,
+  View as RNView,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -165,34 +169,37 @@ export default function SearchScreen() {
   );
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Roach Reports</Text>
-        <Text style={styles.subtitle}>Search for a building to see reports</Text>
-      </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View>
+          <View style={styles.header}>
+            <Text style={styles.title}>Roach Reports</Text>
+            <Text style={styles.subtitle}>Search for a building to see reports</Text>
+          </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.autocompleteWrapper}>
-          <AddressAutocomplete
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onAddressValidated={handleAddressValidated}
-            placeholder="Enter an address..."
-          />
+          <View style={styles.searchContainer}>
+            <View style={styles.autocompleteWrapper}>
+              <AddressAutocomplete
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onAddressValidated={handleAddressValidated}
+                placeholder="Enter an address..."
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => {
+                const query = validatedAddress
+                  ? buildSearchQuery(validatedAddress.formatted_address)
+                  : searchQuery;
+                handleSearchByText(query);
+              }}
+            >
+              <Text style={styles.searchButtonText}>Search</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => {
-            const query = validatedAddress
-              ? buildSearchQuery(validatedAddress.formatted_address)
-              : searchQuery;
-            handleSearchByText(query);
-          }}
-        >
-          <Text style={styles.searchButtonText}>Search</Text>
-        </TouchableOpacity>
-      </View>
+      </TouchableWithoutFeedback>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -207,14 +214,56 @@ export default function SearchScreen() {
             style={styles.resultsList}
             contentContainerStyle={styles.resultsContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           />
         ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No buildings found</Text>
-            <Text style={styles.emptySubtext}>
-              Try a different address or be the first to report!
+          <ScrollView
+            style={styles.emptyScroll}
+            contentContainerStyle={styles.emptyContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            <Image
+              source={require('@/assets/images/roachbuster.png')}
+              style={styles.roachbusterImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.emptyHeadline}>Good news!</Text>
+            <Text style={styles.emptyText}>
+              There are no known reports of roaches at this address.
             </Text>
-          </View>
+            <View style={styles.disclaimerCard}>
+              <Text style={styles.disclaimerTitle}>How do we know?</Text>
+              <Text style={styles.disclaimerBody}>
+                We crawl (🪳) publicly available NYC databases — including NYC 311 and NYC Housing Preservation & Development (HPD) — and also rely on contributions from renters like you.{'\n\n'}
+                This address not appearing in our results means that <Text style={{ fontWeight: '700' }}>no one has submitted a public record since Jan 1, 2026</Text> indicating roaches here, and <Text style={{ fontWeight: '700' }}>no users of this app have submitted a report either</Text>.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/report',
+                  params: {
+                    prefill_address: validatedAddress?.formatted_address || searchQuery,
+                    prefill_city: validatedAddress?.city ?? '',
+                    prefill_state: validatedAddress?.state ?? '',
+                    prefill_zip: validatedAddress?.zip ?? '',
+                    prefill_lat: validatedAddress?.latitude?.toString() ?? '',
+                    prefill_lng: validatedAddress?.longitude?.toString() ?? '',
+                    prefill_place_id: validatedAddress?.place_id ?? '',
+                  },
+                })
+              }
+            >
+              <RNView style={styles.ctaInner}>
+                <Text style={styles.ctaText}>
+                  Does this look wrong? Submit a report here
+                </Text>
+                <FontAwesome name="upload" size={14} color="#F5F5DD" style={{ marginLeft: 8 }} />
+              </RNView>
+            </TouchableOpacity>
+          </ScrollView>
         )
       ) : (
         <View style={styles.recentContainer}>
@@ -245,7 +294,6 @@ export default function SearchScreen() {
         </View>
       )}
     </View>
-    </TouchableWithoutFeedback>
   );
 }
 
@@ -336,20 +384,67 @@ const styles = StyleSheet.create({
     color: '#A57A5A',
     marginTop: 4,
   },
-  emptyContainer: {
+  roachbusterImage: {
+    width: 200,
+    height: 200,
+    marginBottom: 16,
+  },
+  emptyScroll: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  emptyContainer: {
+    padding: 24,
+    paddingTop: 40,
     alignItems: 'center',
-    padding: 40,
+  },
+  emptyHeadline: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#27ae60',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#8B4411',
+    marginBottom: 24,
+    lineHeight: 22,
   },
-  emptySubtext: {
+  disclaimerCard: {
+    backgroundColor: '#FDF6EC',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    width: '100%',
+  },
+  disclaimerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#8B4411',
+    marginBottom: 8,
+  },
+  disclaimerBody: {
     fontSize: 14,
     color: '#A57A5A',
-    marginTop: 8,
+    lineHeight: 21,
+  },
+  ctaButton: {
+    backgroundColor: '#AE6E4E',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
+  ctaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ctaText: {
+    color: '#F5F5DD',
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
   recentContainer: {
