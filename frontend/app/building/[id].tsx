@@ -11,7 +11,9 @@ import {
   Animated,
   PanResponder,
 } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FontAwesome } from '@expo/vector-icons';
 
 import { Text, View } from '@/components/Themed';
 import { buildingsApi, API_URL } from '@/services/api';
@@ -21,6 +23,8 @@ import { Events } from '@/services/analytics';
 
 export default function BuildingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const posthog = usePostHog();
   const [building, setBuilding] = useState<Building | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,13 +138,25 @@ export default function BuildingDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: '',
-          headerBackTitle: 'Back',
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView style={styles.container}>
+        <View style={styles.streetViewContainer}>
+          {!streetViewError && (
+            <Image
+              source={{ uri: `${API_URL}/buildings/${building.id}/street-view` }}
+              style={styles.streetViewImage}
+              onError={() => setStreetViewError(true)}
+            />
+          )}
+          <TouchableOpacity
+            style={[styles.backButton, { top: insets.top + 8 }]}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
+            <FontAwesome name="chevron-left" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.header}>
           <Text style={styles.address}>{building.address}</Text>
           <Text style={styles.location}>
@@ -148,28 +164,20 @@ export default function BuildingDetailScreen() {
           </Text>
         </View>
 
-        {!streetViewError && (
-          <Image
-            source={{ uri: `${API_URL}/buildings/${building.id}/street-view` }}
-            style={styles.streetViewImage}
-            onError={() => setStreetViewError(true)}
-          />
-        )}
-
         {stats && (
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{stats.totalReports}</Text>
               <Text style={styles.statLabel}>Total Reports</Text>
             </View>
-            <View style={styles.statDivider} />
+            <FontAwesome name="bug" size={14} color="#e74c3c" style={{ alignSelf: 'center' }} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: stats.percentPositive > 0 ? '#e74c3c' : '#27ae60' }]}>
                 {stats.percentPositive}%
               </Text>
               <Text style={styles.statLabel}>With Roaches</Text>
             </View>
-            <View style={styles.statDivider} />
+            <FontAwesome name="bug" size={14} color="#e74c3c" style={{ alignSelf: 'center' }} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
                 {stats.avgSeverity > 0 ? stats.avgSeverity.toFixed(1) : '-'}
@@ -235,11 +243,11 @@ export default function BuildingDetailScreen() {
       >
         <View style={styles.reportHeader}>
           <View style={styles.reportMeta}>
-            <View
-              style={[
-                styles.roachIndicator,
-                { backgroundColor: report.has_roaches ? '#e74c3c' : '#27ae60' },
-              ]}
+            <FontAwesome
+              name="bug"
+              size={16}
+              color={report.has_roaches ? '#e74c3c' : '#27ae60'}
+              style={{ marginRight: 8 }}
             />
             <Text style={styles.reportStatus}>
               {report.has_roaches ? 'Roaches reported' : 'No roaches'}
@@ -262,7 +270,7 @@ export default function BuildingDetailScreen() {
               ]}
             >
               <Text style={styles.severityBadgeText}>
-                {report.severity}/5 - {getSeverityLabel(report.severity)}
+                {report.severity}/5 · {getSeverityLabel(report.severity)}
               </Text>
             </View>
           </View>
@@ -305,10 +313,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  streetViewContainer: {
+    position: 'relative',
+  },
   streetViewImage: {
     width: '100%',
-    height: 200,
+    height: 220,
     backgroundColor: '#e5e5e5',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -362,10 +383,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#C7AD7F',
-  },
   statValue: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -374,6 +391,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#A57A5A',
     marginTop: 4,
+    textTransform: 'uppercase',
   },
   reportsSection: {
     padding: 20,
@@ -420,12 +438,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'transparent',
-  },
-  roachIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
   },
   reportStatus: {
     fontSize: 14,
