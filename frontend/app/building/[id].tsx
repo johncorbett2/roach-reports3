@@ -158,7 +158,7 @@ export default function BuildingDetailScreen() {
         </View>
 
         <View style={styles.header}>
-          <Text style={styles.address}>{building.address}</Text>
+          <Text style={styles.address}>{building.address.split(',')[0]}</Text>
           <Text style={styles.location}>
             {building.city}, {building.state} {building.zip}
           </Text>
@@ -312,6 +312,7 @@ export default function BuildingDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   streetViewContainer: {
     position: 'relative',
@@ -361,15 +362,20 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#C7AD7F',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,
   },
   address: {
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   location: {
     fontSize: 16,
     color: '#A57A5A',
     marginTop: 4,
+    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
