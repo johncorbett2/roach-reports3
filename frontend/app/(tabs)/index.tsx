@@ -171,7 +171,7 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View>
+        <View style={styles.searchAreaWrapper}>
           <View style={styles.header}>
             <Text style={styles.title}>Roach Reports</Text>
             <Text style={styles.subtitle}>Search for a building to see reports</Text>
@@ -314,6 +314,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#A57A5A',
     marginTop: 4,
+  },
+  searchAreaWrapper: {
+    zIndex: 100,
+    elevation: 5,
   },
   searchContainer: {
     flexDirection: 'row',
