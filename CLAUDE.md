@@ -89,16 +89,21 @@ CI runs on every push and pull request to `main` via `.github/workflows/test.yml
 3. Map view → frontend calls `GET /buildings/nearby?lat=&lng=&radius=` → backend converts radius (meters) to degree deltas → Supabase bounding box query (limit 300) → backend computes `marker_status` (`recent_roach`/`older_roach`/`no_roach`/`none`), `report_count`, `positive_count` per building → sorts by distance from viewport center → returns closest 150 buildings (no raw reports array in response)
 4. Building detail → `GET /buildings/:id` → backend returns building + nested reports (including `source` and `report_date`) + images + calculated stats in one query; UI displays `report_date` for HPD/311 records, `created_at` for user submissions
 5. Building street view → `GET /buildings/:id/street-view` → backend fetches from Google Street View Static API and proxies image bytes (API key stays server-side); displayed at top of Building Details screen
+6. StreetEasy listing check → frontend `POST /listings/extract` with a StreetEasy URL → backend fetches the listing page HTML, extracts address via JSON-LD or `og:title`, normalises street type abbreviations, searches buildings DB → returns `{ extracted_address, building | null }`; frontend navigates to building detail on match, or shows no-results state
 
 ### Key Files
 | File | Purpose |
 |------|---------|
 | `backend/app.js` | All Express routes and the `geocodeAddress()` helper |
 | `backend/index.js` | Server entry point — imports `app.js` and calls `app.listen()` |
-| `frontend/services/api.ts` | Centralized API client (`buildingsApi`, `reportsApi`, `placesApi`) |
+| `frontend/services/api.ts` | Centralized API client (`buildingsApi`, `reportsApi`, `placesApi`, `listingsApi`) |
 | `frontend/services/analytics.ts` | Sentry re-export and PostHog event name constants |
 | `frontend/types/index.ts` | Shared TypeScript types for buildings, reports, images |
 | `frontend/components/AddressAutocomplete.tsx` | Address input with Google Places validation and session token management |
+| `frontend/app/check-listing.tsx` | StreetEasy listing check screen — see StreetEasy Integration section |
+| `frontend/index.share.js` | iOS Share Extension component — see StreetEasy Integration section |
+| `frontend/metro.config.js` | Metro bundler config wrapped with `withShareExtension()` for the share extension |
+| `frontend/eas.json` | EAS Build profiles (development, preview, production) |
 | `database/schema.sql` | Canonical schema — source of truth for table structure |
 | `backend/scripts/ingest-nyc-data.js` | Bulk/incremental import from NYC HPD and 311 SODA APIs |
 
@@ -129,6 +134,28 @@ Three-layer matching when a report is submitted:
 A partial unique index on `(source, external_id) WHERE external_id IS NOT NULL` prevents duplicate ingestion runs.
 
 **City names**: HPD/311 data hardcodes city as "New York" for all boroughs. The ingest script reverse-geocodes each new building's coordinates to get the correct locality (e.g. "Long Island City", "Brooklyn"). `fix-building-cities.js` Phase B was run to retroactively correct existing records.
+
+### StreetEasy Integration
+
+Users can check a StreetEasy listing for roach history without manually typing an address. Two entry points:
+
+1. **Manual paste** — "Check a StreetEasy listing" button on the Search tab opens `app/check-listing.tsx`. User pastes a StreetEasy URL or the full share-sheet text (e.g. `"Check out this home… https://streeteasy.com/..."`); the screen extracts the URL via regex, calls `POST /listings/extract`, and navigates to the building detail page on a match.
+
+2. **iOS Share Extension** (`index.share.js`) — once an EAS development build is installed, Roach Reports appears in the iOS system share sheet. Tapping it opens the app via the `roachreports://check-listing?url=...` deep link scheme, which `_layout.tsx` catches and routes to the check-listing screen.
+
+**Address extraction logic** (`backend/app.js`, `POST /listings/extract`):
+- Fetches the StreetEasy page HTML with a mobile User-Agent
+- Tries JSON-LD structured data first, then falls back to `og:title`
+- Strips unit numbers (` #4B`, ` Apt 2`) and neighborhood suffixes (` in Williamsburg`) from the extracted address before the DB search
+- Normalises street type suffixes to standard abbreviations (`Avenue → Ave`, `Street → St`, etc.) so StreetEasy's full names match HPD/311 abbreviated entries in the DB — this prevents false negatives on streets like "47th Avenue" vs "47th Ave" while keeping "47th Avenue" and "47th Road" correctly distinct
+
+**iOS Share Extension build status**: All code is in place (`index.share.js`, `metro.config.js`, `eas.json`, `app.json` plugin config with `bundleIdentifier: com.roachreports.app`). Blocked on Apple Developer Program enrollment. Once enrolled, run:
+```bash
+npm install -g eas-cli
+eas login
+cd frontend && eas build:configure
+eas build --profile development --platform ios
+```
 
 ### NYC Data Sources
 The ingestion script pulls from two NYC Open Data SODA API datasets:
