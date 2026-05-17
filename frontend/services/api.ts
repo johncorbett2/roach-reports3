@@ -128,4 +128,14 @@ export const placesApi = {
   },
 };
 
+// Listings API
+export const listingsApi = {
+  extractFromUrl: async (url: string): Promise<{ extracted_address: string; building: Building | null }> => {
+    return request('/listings/extract', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+  },
+};
+
 export { ApiError };

@@ -532,6 +532,110 @@ app.post('/reports/:id/images', async (req, res) => {
   res.status(201).json(data);
 });
 
+// LISTINGS ENDPOINTS
+// ==================
+
+// Extract address from a StreetEasy listing URL and look up the building
+app.post('/listings/extract', async (req, res) => {
+  const { url } = req.body;
+
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'url is required' });
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+
+  if (parsed.hostname !== 'streeteasy.com' && !parsed.hostname.endsWith('.streeteasy.com')) {
+    return res.status(400).json({ error: 'URL must be from streeteasy.com' });
+  }
+
+  let html;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    if (!response.ok) {
+      return res.status(502).json({ error: 'fetch_blocked', message: `StreetEasy returned ${response.status}` });
+    }
+    html = await response.text();
+  } catch (err) {
+    return res.status(502).json({ error: 'fetch_error', message: err.message });
+  }
+
+  const cheerio = require('cheerio');
+  const $ = cheerio.load(html);
+
+  let extractedAddress = null;
+
+  // Strategy 1: JSON-LD structured data
+  $('script[type="application/ld+json"]').each((_, el) => {
+    if (extractedAddress) return;
+    try {
+      const json = JSON.parse($(el).html());
+      const candidates = Array.isArray(json) ? json : [json];
+      for (const node of candidates) {
+        const street = node?.address?.streetAddress || node?.streetAddress;
+        if (street) { extractedAddress = street; break; }
+      }
+    } catch { /* ignore malformed JSON-LD */ }
+  });
+
+  // Strategy 2: og:title — "123 Main St #1A, Manhattan | StreetEasy"
+  if (!extractedAddress) {
+    const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+    const match = ogTitle.split('|')[0].trim();
+    // Strip trailing city/neighborhood if present (comma-separated)
+    const addressPart = match.split(',')[0].trim();
+    if (addressPart.length > 5) extractedAddress = addressPart;
+  }
+
+  if (!extractedAddress) {
+    return res.status(422).json({ error: 'address_not_found', message: 'Could not extract an address from this listing page' });
+  }
+
+  // Clean up address for DB search: strip "in [Neighborhood]" and unit numbers
+  // e.g. "166 South 3rd Street #3R in Williamsburg" → "166 South 3rd Street"
+  let searchAddress = extractedAddress.split(' in ')[0].trim();
+  searchAddress = searchAddress.replace(/\s+(#|Apt\.?)\s*\S+$/i, '').trim();
+
+  // Normalize street type suffix to standard abbreviations so that StreetEasy's
+  // full names ("Avenue", "Street") match DB entries that use abbreviations ("Ave", "St").
+  // We intentionally keep the type (not drop it) so "47th Ave" and "47th Rd" stay distinct.
+  const STREET_TYPES = {
+    avenue: 'Ave', boulevard: 'Blvd', circle: 'Cir', court: 'Ct',
+    drive: 'Dr', expressway: 'Expy', highway: 'Hwy', lane: 'Ln',
+    parkway: 'Pkwy', place: 'Pl', road: 'Rd', street: 'St', terrace: 'Ter',
+  };
+  const tokens = searchAddress.split(' ');
+  const lastToken = tokens[tokens.length - 1];
+  const abbrev = STREET_TYPES[lastToken.toLowerCase()];
+  if (abbrev) {
+    tokens[tokens.length - 1] = abbrev;
+    searchAddress = tokens.join(' ');
+  }
+
+  // Look up in buildings database
+  const { data, error } = await supabase
+    .from('buildings')
+    .select('*, reports (id, has_roaches, severity, created_at)')
+    .ilike('address', `%${searchAddress}%`)
+    .limit(5);
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  const building = data && data.length > 0 ? data[0] : null;
+  res.json({ extracted_address: extractedAddress, building });
+});
+
 // Debug endpoint
 app.post('/_debug', (req, res) => {
   res.json({ headers: req.headers, body: req.body });

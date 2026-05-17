@@ -23,6 +23,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.57.2",
     "body-parser": "^2.2.0",
+    "cheerio": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "expo": "^55.0.10-canary-20260328-2049187",

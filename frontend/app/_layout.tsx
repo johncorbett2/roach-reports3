@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import * as Linking from 'expo-linking';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useState } from 'react';
@@ -76,6 +77,28 @@ function RootLayoutNav() {
     if (!value) router.replace('/onboarding');
   }, [router]);
 
+  // Handle deep links: roachreports://check-listing?url=...
+  useEffect(() => {
+    function handleUrl({ url }: { url: string }) {
+      const parsed = Linking.parse(url);
+      if (parsed.path === 'check-listing' && parsed.queryParams?.url) {
+        router.push({
+          pathname: '/check-listing',
+          params: { url: parsed.queryParams.url as string },
+        });
+      }
+    }
+
+    const sub = Linking.addEventListener('url', handleUrl);
+
+    // Handle the URL the app was cold-launched with
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    return () => sub.remove();
+  }, [router]);
+
   return (
     <PostHogProvider
       apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY ?? ''}
@@ -88,6 +111,7 @@ function RootLayoutNav() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="splash" options={{ headerShown: false }} />
           <Stack.Screen name="building/[id]" options={{ headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411' }} />
+          <Stack.Screen name="check-listing" options={{ title: 'Check a Listing', headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         {showSplash && <SplashOverlay onComplete={handleSplashComplete} />}

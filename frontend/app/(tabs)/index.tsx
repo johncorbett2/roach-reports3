@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Keyboard,
+  Modal,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -58,6 +59,7 @@ export default function SearchScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
+  const [showSourcesModal, setShowSourcesModal] = useState(false);
 
   useEffect(() => {
     loadRecentSearches();
@@ -173,7 +175,6 @@ export default function SearchScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.searchAreaWrapper}>
           <View style={styles.header}>
-            <Text style={styles.title}>Roach Reports</Text>
             <Text style={styles.subtitle}>Search for a building to see reports</Text>
           </View>
 
@@ -232,13 +233,35 @@ export default function SearchScreen() {
             <Text style={styles.emptyText}>
               There are no known reports of roaches at this address.
             </Text>
-            <View style={styles.disclaimerCard}>
-              <Text style={styles.disclaimerTitle}>How do we know?</Text>
-              <Text style={styles.disclaimerBody}>
-                We crawl (🪳) publicly available NYC databases — including NYC 311 and NYC Housing Preservation & Development (HPD) — and also rely on contributions from renters like you.{'\n\n'}
-                This address not appearing in our results means that <Text style={{ fontWeight: '700' }}>no one has submitted a public record since Jan 1, 2026</Text> indicating roaches here, and <Text style={{ fontWeight: '700' }}>no users of this app have submitted a report either</Text>.
-              </Text>
-            </View>
+            <TouchableOpacity onPress={() => setShowSourcesModal(true)} style={styles.howDoWeKnowLink}>
+              <Text style={styles.howDoWeKnowLinkText}>How do we know?</Text>
+            </TouchableOpacity>
+
+            <Modal
+              visible={showSourcesModal}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setShowSourcesModal(false)}
+            >
+              <TouchableWithoutFeedback onPress={() => setShowSourcesModal(false)}>
+                <RNView style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback>
+                    <RNView style={styles.modalCard}>
+                      <RNView style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>How do we know?</Text>
+                        <TouchableOpacity onPress={() => setShowSourcesModal(false)} style={styles.modalCloseBtn}>
+                          <FontAwesome name="times" size={18} color="#8B4411" />
+                        </TouchableOpacity>
+                      </RNView>
+                      <Text style={styles.modalBody}>
+                        We crawl (🪳) publicly available NYC databases — including NYC 311 and NYC Housing Preservation & Development (HPD) — and also rely on contributions from renters like you.{'\n\n'}
+                        This address not appearing in our results means that <Text style={{ fontWeight: '700' }}>no one has submitted a public record since Jan 1, 2026</Text> indicating roaches here, and <Text style={{ fontWeight: '700' }}>no users of this app have submitted a report either</Text>.
+                      </Text>
+                    </RNView>
+                  </TouchableWithoutFeedback>
+                </RNView>
+              </TouchableWithoutFeedback>
+            </Modal>
             <TouchableOpacity
               style={styles.ctaButton}
               onPress={() =>
@@ -267,6 +290,14 @@ export default function SearchScreen() {
         )
       ) : (
         <View style={styles.recentContainer}>
+          <TouchableOpacity
+            style={styles.checkListingButton}
+            onPress={() => router.push('/check-listing')}
+          >
+            <FontAwesome name="share-square-o" size={16} color="#AE6E4E" style={{ marginRight: 8 }} />
+            <Text style={styles.checkListingButtonText}>Check a StreetEasy listing</Text>
+          </TouchableOpacity>
+
           {recentSearches.length > 0 && (
             <>
               <Text style={styles.recentTitle}>Recent Searches</Text>
@@ -305,10 +336,6 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingBottom: 10,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
   },
   subtitle: {
     fontSize: 16,
@@ -415,20 +442,40 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 22,
   },
-  disclaimerCard: {
-    backgroundColor: '#FDF6EC',
-    borderRadius: 12,
-    padding: 16,
+  howDoWeKnowLink: {
     marginBottom: 24,
-    width: '100%',
   },
-  disclaimerTitle: {
+  howDoWeKnowLinkText: {
+    fontSize: 14,
+    color: '#8B4411',
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FDF6EC',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#8B4411',
-    marginBottom: 8,
   },
-  disclaimerBody: {
+  modalCloseBtn: {
+    padding: 6,
+  },
+  modalBody: {
     fontSize: 14,
     color: '#A57A5A',
     lineHeight: 21,
@@ -453,6 +500,22 @@ const styles = StyleSheet.create({
   },
   recentContainer: {
     padding: 20,
+  },
+  checkListingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0C8A8',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    backgroundColor: '#FDF6EC',
+  },
+  checkListingButtonText: {
+    fontSize: 15,
+    color: '#AE6E4E',
+    fontWeight: '500',
   },
   recentTitle: {
     fontSize: 18,
