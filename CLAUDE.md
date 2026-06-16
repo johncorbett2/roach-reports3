@@ -11,8 +11,8 @@ Roach Reports is a mobile app for NYC renters to report and look up cockroach si
 ### Backend
 ```bash
 cd backend
-npm run dev      # development with auto-reload (node --watch), port 4000
-npm start        # production
+npm run dev      # development — loads .env.development, auto-reload, port 4000
+npm start        # production — loads .env
 ```
 
 ### Frontend
@@ -59,16 +59,30 @@ The shared Supabase mock lives in `backend/__tests__/helpers/mockSupabase.js`. I
 
 CI runs on every push and pull request to `main` via `.github/workflows/test.yml` (GitHub Actions).
 
+## Environments
+
+Two environments: **dev** and **prod**. Each has its own Supabase project and env files. The backend loads the right file based on `NODE_ENV`; the frontend loads `.env.development` over `.env` automatically in dev mode (Expo's standard precedence).
+
+**Switching networks (physical device)**: update `EXPO_PUBLIC_API_URL` in `frontend/.env.development` to your machine's current LAN IP, then restart Expo with `npx expo start --clear`.
+
 ## Environment Variables
 
-**Backend** (`backend/.env`):
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — Supabase project credentials
+**Backend** — two env files, same keys in each:
+- `backend/.env` — production Supabase project
+- `backend/.env.development` — dev Supabase project (`npm run dev` loads this)
+
+Keys:
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — Supabase project credentials (use the "Secret" key from Project Settings → API, not the deprecated service_role JWT)
 - `GOOGLE_MAPS_API_KEY` — used for geocoding, Places API, and Street View Static API
 - `NYC_OPEN_DATA_TOKEN` — optional; raises SODA rate limit from ~32 to 1000 req/hr
 - `PORT` — defaults to 4000
 
-**Frontend** (`frontend/.env`):
-- `EXPO_PUBLIC_API_URL` — backend URL (e.g. `http://localhost:4000`)
+**Frontend** — two env files, same keys in each:
+- `frontend/.env` — production values
+- `frontend/.env.development` — dev values (Expo loads this in dev mode, overrides `.env`)
+
+Keys:
+- `EXPO_PUBLIC_API_URL` — backend URL; use machine's LAN IP for physical devices (e.g. `http://172.20.10.3:4000`), `http://localhost:4000` for simulator
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` — for the map view
 - `EXPO_PUBLIC_SENTRY_DSN` — Sentry DSN for error monitoring (get from sentry.io project settings)
 - `EXPO_PUBLIC_POSTHOG_KEY` — PostHog API key for product analytics (get from posthog.com project settings)
@@ -78,7 +92,7 @@ CI runs on every push and pull request to `main` via `.github/workflows/test.yml
 ### Stack
 - **Frontend**: Expo (React Native) with Expo Router, TypeScript
 - **Backend**: Node.js + Express 5, plain JS
-- **Database**: Supabase (PostgreSQL), accessed via `@supabase/supabase-js` with the service role key
+- **Database**: Supabase (PostgreSQL), accessed via `@supabase/supabase-js` (v2.108+) — separate projects for dev and prod
 - **Maps/Geocoding**: Google Maps Geocoding API + Google Places API (proxied through the backend)
 - **Error monitoring**: Sentry (`@sentry/react-native`) — initialized in `frontend/app/_layout.tsx`, root component wrapped with `Sentry.wrap()`
 - **Product analytics**: PostHog (`posthog-react-native`) — `PostHogProvider` in `_layout.tsx`; events captured via `usePostHog()` hook in screens
@@ -103,8 +117,9 @@ CI runs on every push and pull request to `main` via `.github/workflows/test.yml
 | `frontend/app/check-listing.tsx` | StreetEasy listing check screen — see StreetEasy Integration section |
 | `frontend/index.share.js` | iOS Share Extension component — see StreetEasy Integration section |
 | `frontend/metro.config.js` | Metro bundler config wrapped with `withShareExtension()` for the share extension |
-| `frontend/eas.json` | EAS Build profiles (development, preview, production) |
-| `database/schema.sql` | Canonical schema — source of truth for table structure |
+| `frontend/app.config.ts` | Dynamic Expo config — sets app name and bundle ID based on `APP_ENV` |
+| `frontend/eas.json` | EAS Build profiles — each injects `APP_ENV` (development/production) |
+| `database/schema.sql` | Canonical schema — run in Supabase SQL Editor to set up a fresh project |
 | `backend/scripts/ingest-nyc-data.js` | Bulk/incremental import from NYC HPD and 311 SODA APIs |
 
 ### Analytics Events
@@ -149,7 +164,7 @@ Users can check a StreetEasy listing for roach history without manually typing a
 - Strips unit numbers (` #4B`, ` Apt 2`) and neighborhood suffixes (` in Williamsburg`) from the extracted address before the DB search
 - Normalises street type suffixes to standard abbreviations (`Avenue → Ave`, `Street → St`, etc.) so StreetEasy's full names match HPD/311 abbreviated entries in the DB — this prevents false negatives on streets like "47th Avenue" vs "47th Ave" while keeping "47th Avenue" and "47th Road" correctly distinct
 
-**iOS Share Extension build status**: All code is in place (`index.share.js`, `metro.config.js`, `eas.json`, `app.json` plugin config with `bundleIdentifier: com.roachreports.app`). Blocked on Apple Developer Program enrollment. Once enrolled, run:
+**iOS Share Extension build status**: All code is in place (`index.share.js`, `metro.config.js`, `eas.json`, `app.config.ts` plugin config with `bundleIdentifier: com.roachreports.app`). Blocked on Apple Developer Program enrollment. Once enrolled, run:
 ```bash
 npm install -g eas-cli
 eas login
