@@ -2,7 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'development' ? '.env.development' : '.env',
+});
 
 const app = express();
 
