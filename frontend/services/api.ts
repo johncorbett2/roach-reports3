@@ -128,6 +128,13 @@ export const placesApi = {
   },
 };
 
+// Stats API
+export const statsApi = {
+  get: async (): Promise<{ buildings_with_roaches: number }> => {
+    return request<{ buildings_with_roaches: number }>('/stats');
+  },
+};
+
 // Listings API
 export const listingsApi = {
   extractFromUrl: async (url: string): Promise<{ extracted_address: string; building: Building | null }> => {

@@ -1,12 +1,16 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   Keyboard,
+  Modal,
+  Pressable,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  View as RNView,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Text, View } from '@/components/Themed';
 import { placesApi } from '@/services/api';
 import { PlacePrediction, ValidatedAddress } from '@/types';
@@ -16,6 +20,8 @@ interface AddressAutocompleteProps {
   onChangeText: (text: string) => void;
   onAddressValidated: (address: ValidatedAddress | null) => void;
   placeholder?: string;
+  recentSearches?: string[];
+  onRecentSearchSelect?: (query: string) => void;
 }
 
 export default function AddressAutocomplete({
@@ -23,18 +29,34 @@ export default function AddressAutocomplete({
   onChangeText,
   onAddressValidated,
   placeholder = '123 Main St, New York, NY 10001',
+  recentSearches = [],
+  onRecentSearchSelect,
 }: AddressAutocompleteProps) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const sessionTokenRef = useRef<string>(generateSessionToken());
+  const containerRef = useRef<RNView>(null);
 
   function generateSessionToken(): string {
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
+
+  const openDropdown = useCallback(() => {
+    containerRef.current?.measure((_x, _y, width, height, pageX, pageY) => {
+      setDropdownPos({ top: pageY + height, left: pageX, width });
+      setShowDropdown(true);
+    });
+  }, []);
+
+  const closeDropdown = useCallback(() => {
+    setShowDropdown(false);
+    setPredictions([]);
+  }, []);
 
   const fetchPredictions = useCallback(async (input: string) => {
     if (input.length < 2) {
@@ -42,12 +64,15 @@ export default function AddressAutocomplete({
       setShowDropdown(false);
       return;
     }
-
     setIsLoading(true);
     try {
       const results = await placesApi.autocomplete(input, sessionTokenRef.current);
       setPredictions(results);
-      setShowDropdown(results.length > 0);
+      if (results.length > 0) {
+        openDropdown();
+      } else {
+        setShowDropdown(false);
+      }
     } catch (error) {
       console.error('Autocomplete error:', error);
       setPredictions([]);
@@ -55,36 +80,35 @@ export default function AddressAutocomplete({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [openDropdown]);
 
   const handleTextChange = (text: string) => {
     onChangeText(text);
     onAddressValidated(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
+    if (text.length === 0) {
+      setPredictions([]);
+      if (recentSearches.length > 0) {
+        openDropdown();
+      } else {
+        setShowDropdown(false);
+      }
+      return;
     }
 
-    debounceRef.current = setTimeout(() => {
-      fetchPredictions(text);
-    }, 500);
+    setShowDropdown(false);
+    debounceRef.current = setTimeout(() => fetchPredictions(text), 500);
   };
 
   const handleSelectPrediction = async (prediction: PlacePrediction) => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    closeDropdown();
     Keyboard.dismiss();
-    setShowDropdown(false);
-    setPredictions([]);
     onChangeText(prediction.description);
     setIsFetchingDetails(true);
-
     try {
-      const details = await placesApi.getDetails(
-        prediction.place_id,
-        sessionTokenRef.current
-      );
+      const details = await placesApi.getDetails(prediction.place_id, sessionTokenRef.current);
       onAddressValidated(details);
       sessionTokenRef.current = generateSessionToken();
     } catch (error) {
@@ -95,22 +119,33 @@ export default function AddressAutocomplete({
     }
   };
 
+  const handleSelectRecent = (query: string) => {
+    closeDropdown();
+    Keyboard.dismiss();
+    onChangeText(query);
+    onRecentSearchSelect?.(query);
+  };
+
+  const showRecents = value.length === 0 && recentSearches.length > 0 && predictions.length === 0;
+
   const renderPrediction = ({ item }: { item: PlacePrediction }) => (
-    <TouchableOpacity
-      style={styles.predictionItem}
-      onPress={() => handleSelectPrediction(item)}
-    >
-      <Text style={styles.predictionMain}>
-        {item.structured_formatting.main_text}
-      </Text>
-      <Text style={styles.predictionSecondary}>
-        {item.structured_formatting.secondary_text}
-      </Text>
+    <TouchableOpacity style={styles.predictionItem} onPress={() => handleSelectPrediction(item)}>
+      <Text style={styles.predictionMain}>{item.structured_formatting.main_text}</Text>
+      <Text style={styles.predictionSecondary}>{item.structured_formatting.secondary_text}</Text>
+    </TouchableOpacity>
+  );
+
+  const renderRecentItem = ({ item }: { item: string }) => (
+    <TouchableOpacity style={styles.predictionItem} onPress={() => handleSelectRecent(item)}>
+      <RNView style={styles.recentRow}>
+        <FontAwesome name="clock-o" size={13} color="#C7AD7F" style={styles.recentIcon} />
+        <Text style={styles.predictionMain}>{item}</Text>
+      </RNView>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <RNView ref={containerRef} style={styles.container}>
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -119,8 +154,10 @@ export default function AddressAutocomplete({
           placeholder={placeholder}
           placeholderTextColor="#C7AD7F"
           onFocus={() => {
-            if (predictions.length > 0) {
-              setShowDropdown(true);
+            if (value.length === 0 && recentSearches.length > 0) {
+              openDropdown();
+            } else if (predictions.length > 0) {
+              openDropdown();
             }
           }}
         />
@@ -128,31 +165,46 @@ export default function AddressAutocomplete({
           <ActivityIndicator style={styles.loader} size="small" color="#666" />
         )}
       </View>
-      {showDropdown && predictions.length > 0 && (
-        <View style={styles.dropdown}>
-          <FlatList
-            data={predictions}
-            renderItem={renderPrediction}
-            keyExtractor={(item) => item.place_id}
-            keyboardShouldPersistTaps="handled"
-            scrollEnabled={false}
-          />
-        </View>
+
+      {showDropdown && (
+        <Modal transparent visible={true} animationType="none" onRequestClose={closeDropdown}>
+          {/* Full-screen backdrop: tapping anywhere outside the dropdown closes it */}
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeDropdown} />
+          <RNView style={[styles.dropdown, { top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }]}>
+            {showRecents ? (
+              <>
+                <Text style={styles.recentHeader}>Recent</Text>
+                <FlatList
+                  data={recentSearches}
+                  renderItem={renderRecentItem}
+                  keyExtractor={(_item, index) => `recent-${index}`}
+                  keyboardShouldPersistTaps="handled"
+                  scrollEnabled={false}
+                />
+              </>
+            ) : (
+              <FlatList
+                data={predictions}
+                renderItem={renderPrediction}
+                keyExtractor={(item) => item.place_id}
+                keyboardShouldPersistTaps="handled"
+                scrollEnabled={false}
+              />
+            )}
+          </RNView>
+        </Modal>
       )}
-    </View>
+    </RNView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
     zIndex: 1000,
-    backgroundColor: 'transparent',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent',
   },
   input: {
     flex: 1,
@@ -170,21 +222,16 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#C7AD7F',
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    maxHeight: 200,
+    borderRadius: 12,
+    maxHeight: 250,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 10,
   },
   predictionItem: {
     padding: 12,
@@ -200,5 +247,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#A57A5A',
     marginTop: 2,
+  },
+  recentHeader: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#C7AD7F',
+    letterSpacing: 0.5,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 4,
+    textTransform: 'uppercase',
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recentIcon: {
+    marginRight: 8,
   },
 });

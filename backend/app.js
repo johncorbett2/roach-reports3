@@ -62,6 +62,10 @@ function parseAddressComponents(components) {
   return result;
 }
 
+// In-memory cache for aggregate stats (1-hour TTL)
+let statsCache = { count: null, cachedAt: null };
+const STATS_CACHE_TTL_MS = 60 * 60 * 1000;
+
 // Root route
 app.get('/', (req, res) => {
   res.json({
@@ -78,6 +82,26 @@ app.get('/', (req, res) => {
       'GET /places/details?place_id='
     ]
   });
+});
+
+// ===================
+// STATS ENDPOINT
+// ===================
+
+app.get('/stats', async (req, res) => {
+  const now = Date.now();
+  if (statsCache.count !== null && statsCache.cachedAt && now - statsCache.cachedAt < STATS_CACHE_TTL_MS) {
+    return res.json({ buildings_with_roaches: statsCache.count });
+  }
+
+  const { count, error } = await supabase
+    .from('buildings')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  statsCache = { count, cachedAt: now };
+  res.json({ buildings_with_roaches: count });
 });
 
 // ===================

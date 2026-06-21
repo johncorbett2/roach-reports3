@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Text, View } from '@/components/Themed';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
-import { buildingsApi } from '@/services/api';
+import { buildingsApi, statsApi } from '@/services/api';
 import { Building, ValidatedAddress } from '@/types';
 import { usePostHog } from 'posthog-react-native';
 import { Events } from '@/services/analytics';
@@ -60,9 +60,11 @@ export default function SearchScreen() {
   const [hasSearched, setHasSearched] = useState(false);
   const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
   const [showSourcesModal, setShowSourcesModal] = useState(false);
+  const [roachCount, setRoachCount] = useState<number | null>(null);
 
   useEffect(() => {
     loadRecentSearches();
+    statsApi.get().then(s => setRoachCount(s.buildings_with_roaches)).catch(() => {});
   }, []);
 
   const loadRecentSearches = async () => {
@@ -175,7 +177,14 @@ export default function SearchScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.searchAreaWrapper}>
           <View style={styles.header}>
-            <Text style={styles.subtitle}>Search for a building to see reports</Text>
+            {roachCount !== null ? (
+              <Text style={styles.heroBody}>
+                <Text style={styles.heroCount}>{roachCount.toLocaleString()}</Text>
+                {' '}apartments in NYC have roaches. Make sure your next apartment isn't one of them.
+              </Text>
+            ) : (
+              <View style={styles.heroSkeleton} />
+            )}
           </View>
 
           <View style={styles.searchContainer}>
@@ -185,6 +194,8 @@ export default function SearchScreen() {
                 onChangeText={setSearchQuery}
                 onAddressValidated={handleAddressValidated}
                 placeholder="Enter an address..."
+                recentSearches={recentSearches}
+                onRecentSearchSelect={handleRecentSearchPress}
               />
             </View>
             <TouchableOpacity
@@ -289,40 +300,17 @@ export default function SearchScreen() {
           </ScrollView>
         )
       ) : (
-        <View style={styles.recentContainer}>
-          <TouchableOpacity
-            style={styles.checkListingButton}
-            onPress={() => router.push('/check-listing')}
-          >
-            <FontAwesome name="share-square-o" size={16} color="#AE6E4E" style={{ marginRight: 8 }} />
-            <Text style={styles.checkListingButtonText}>Check a StreetEasy listing</Text>
-          </TouchableOpacity>
-
-          {recentSearches.length > 0 && (
-            <>
-              <Text style={styles.recentTitle}>Recent Searches</Text>
-              {recentSearches.map((query, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.recentItem}
-                  onPress={() => handleRecentSearchPress(query)}
-                >
-                  <Text style={styles.recentText}>{query}</Text>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
-
-          <View style={styles.tipContainer}>
-            <Text style={styles.tipTitle}>Tips</Text>
-            <Text style={styles.tipText}>
-              Search by street address to find reports for any building in NYC.
-            </Text>
-            <Text style={styles.tipText}>
-              Status colors: Red = recent reports, Yellow = older reports, Green = no roaches reported.
-            </Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.recentContainer}>
+            <TouchableOpacity
+              style={styles.checkListingButton}
+              onPress={() => router.push('/check-listing')}
+            >
+              <FontAwesome name="share-square-o" size={16} color="#AE6E4E" style={{ marginRight: 8 }} />
+              <Text style={styles.checkListingButtonText}>Check a StreetEasy listing</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       )}
     </View>
   );
@@ -337,10 +325,22 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 10,
   },
-  subtitle: {
-    fontSize: 16,
+  heroCount: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#8B4411',
+  },
+  heroBody: {
+    fontSize: 26,
     color: '#A57A5A',
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 32,
+  },
+  heroSkeleton: {
+    height: 36,
+    width: '55%',
+    backgroundColor: '#E0C8A8',
+    borderRadius: 6,
   },
   searchAreaWrapper: {
     zIndex: 100,
@@ -516,37 +516,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#AE6E4E',
     fontWeight: '500',
-  },
-  recentTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  recentItem: {
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  recentText: {
-    fontSize: 16,
-  },
-  tipContainer: {
-    marginTop: 30,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#8B4411',
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#A57A5A',
-    marginBottom: 6,
-    lineHeight: 20,
   },
 });
