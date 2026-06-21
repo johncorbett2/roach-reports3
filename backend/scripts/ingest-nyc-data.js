@@ -11,7 +11,8 @@
 // Requires .env with: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 // Optional .env:      NYC_OPEN_DATA_TOKEN (raises SODA rate limit to 1000 req/hr)
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const envFile = process.env.NODE_ENV === 'development' ? '../.env.development' : '../.env';
+require('dotenv').config({ path: require('path').join(__dirname, envFile) });
 const { createClient } = require('@supabase/supabase-js');
 
 const SODA_BASE = 'https://data.cityofnewyork.us/resource';

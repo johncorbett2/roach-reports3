@@ -107,11 +107,11 @@ function RootLayoutNav() {
       <NavigationTracker />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, headerBackTitle: '' }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="splash" options={{ headerShown: false }} />
           <Stack.Screen name="building/[id]" options={{ headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411' }} />
-          <Stack.Screen name="check-listing" options={{ title: 'Check a Listing', headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411' }} />
+          <Stack.Screen name="check-listing" options={{ title: 'Check a Listing', headerShown: true, headerStyle: { backgroundColor: '#FFFFFF' }, headerTintColor: '#8B4411', headerBackTitleVisible: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
         {showSplash && <SplashOverlay onComplete={handleSplashComplete} />}

@@ -9,12 +9,21 @@ import {
   View as RNView,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Text, View } from '@/components/Themed';
 import { listingsApi } from '@/services/api';
 
 type ScreenState = 'input' | 'loading' | 'not_found' | 'fetch_blocked' | 'error';
+
+function BackButton() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity onPress={() => router.back()} style={{ paddingHorizontal: 8 }}>
+      <FontAwesome name="chevron-left" size={18} color="#8B4411" />
+    </TouchableOpacity>
+  );
+}
 
 export default function CheckListingScreen() {
   const router = useRouter();
@@ -80,119 +89,127 @@ export default function CheckListingScreen() {
     }
   }
 
-  if (state === 'loading') {
+  function renderContent() {
+    if (state === 'loading') {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#AE6E4E" />
+          <Text style={styles.loadingText}>Looking up this listing…</Text>
+        </View>
+      );
+    }
+
+    if (state === 'not_found') {
+      return (
+        <View style={styles.centered}>
+          <FontAwesome name="check-circle" size={56} color="#27ae60" style={{ marginBottom: 16 }} />
+          <Text style={styles.resultHeadline}>No reports found</Text>
+          <Text style={styles.resultBody}>
+            We have no roach reports on file for{'\n'}
+            <Text style={{ fontWeight: '700' }}>{extractedAddress}</Text>
+          </Text>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={() =>
+              router.replace({
+                pathname: '/(tabs)/report',
+                params: { prefill_address: extractedAddress },
+              })
+            }
+          >
+            <RNView style={styles.ctaInner}>
+              <Text style={styles.ctaText}>Submit a report for this address</Text>
+              <FontAwesome name="upload" size={14} color="#F5F5DD" style={{ marginLeft: 8 }} />
+            </RNView>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
+            <Text style={styles.secondaryButtonText}>Check another listing</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (state === 'fetch_blocked') {
+      return (
+        <View style={styles.centered}>
+          <FontAwesome name="exclamation-circle" size={56} color="#f39c12" style={{ marginBottom: 16 }} />
+          <Text style={styles.resultHeadline}>Couldn't read that listing</Text>
+          <Text style={styles.resultBody}>
+            StreetEasy blocked our request. Try searching by address instead.
+          </Text>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={() => router.replace('/(tabs)/')}
+          >
+            <Text style={styles.ctaText}>Go to Search</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
+            <Text style={styles.secondaryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (state === 'error') {
+      return (
+        <View style={styles.centered}>
+          <FontAwesome name="exclamation-triangle" size={56} color="#e74c3c" style={{ marginBottom: 16 }} />
+          <Text style={styles.resultHeadline}>Something went wrong</Text>
+          <Text style={styles.resultBody}>
+            We couldn't extract an address from that page. Try searching by address instead.
+          </Text>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={() => router.replace('/(tabs)/')}
+          >
+            <Text style={styles.ctaText}>Go to Search</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
+            <Text style={styles.secondaryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#AE6E4E" />
-        <Text style={styles.loadingText}>Looking up this listing…</Text>
-      </View>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.container}>
+          <Text style={styles.instructionTitle}>Check a StreetEasy listing</Text>
+          <Text style={styles.instructionBody}>
+            Paste the URL of a StreetEasy listing to check it for roach reports.
+          </Text>
+          <TextInput
+            style={[styles.input, urlError ? styles.inputError : null]}
+            value={urlInput}
+            onChangeText={(t) => { setUrlInput(t); setUrlError(''); }}
+            placeholder="https://streeteasy.com/rental/..."
+            placeholderTextColor="#C4A882"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            returnKeyType="go"
+            onSubmitEditing={() => runExtraction(urlInput)}
+          />
+          {urlError ? <Text style={styles.errorText}>{urlError}</Text> : null}
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={() => runExtraction(urlInput)}
+          >
+            <Text style={styles.ctaText}>Check this listing</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
-  if (state === 'not_found') {
-    return (
-      <View style={styles.centered}>
-        <FontAwesome name="check-circle" size={56} color="#27ae60" style={{ marginBottom: 16 }} />
-        <Text style={styles.resultHeadline}>No reports found</Text>
-        <Text style={styles.resultBody}>
-          We have no roach reports on file for{'\n'}
-          <Text style={{ fontWeight: '700' }}>{extractedAddress}</Text>
-        </Text>
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={() =>
-            router.replace({
-              pathname: '/(tabs)/report',
-              params: { prefill_address: extractedAddress },
-            })
-          }
-        >
-          <RNView style={styles.ctaInner}>
-            <Text style={styles.ctaText}>Submit a report for this address</Text>
-            <FontAwesome name="upload" size={14} color="#F5F5DD" style={{ marginLeft: 8 }} />
-          </RNView>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
-          <Text style={styles.secondaryButtonText}>Check another listing</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (state === 'fetch_blocked') {
-    return (
-      <View style={styles.centered}>
-        <FontAwesome name="exclamation-circle" size={56} color="#f39c12" style={{ marginBottom: 16 }} />
-        <Text style={styles.resultHeadline}>Couldn't read that listing</Text>
-        <Text style={styles.resultBody}>
-          StreetEasy blocked our request. Try searching by address instead.
-        </Text>
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={() => router.replace('/(tabs)/')}
-        >
-          <Text style={styles.ctaText}>Go to Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
-          <Text style={styles.secondaryButtonText}>Try again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (state === 'error') {
-    return (
-      <View style={styles.centered}>
-        <FontAwesome name="exclamation-triangle" size={56} color="#e74c3c" style={{ marginBottom: 16 }} />
-        <Text style={styles.resultHeadline}>Something went wrong</Text>
-        <Text style={styles.resultBody}>
-          We couldn't extract an address from that page. Try searching by address instead.
-        </Text>
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={() => router.replace('/(tabs)/')}
-        >
-          <Text style={styles.ctaText}>Go to Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => setState('input')}>
-          <Text style={styles.secondaryButtonText}>Try again</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Input state
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        <Text style={styles.instructionTitle}>Check a StreetEasy listing</Text>
-        <Text style={styles.instructionBody}>
-          Paste the URL of a StreetEasy listing to check it for roach reports.
-        </Text>
-        <TextInput
-          style={[styles.input, urlError ? styles.inputError : null]}
-          value={urlInput}
-          onChangeText={(t) => { setUrlInput(t); setUrlError(''); }}
-          placeholder="https://streeteasy.com/rental/..."
-          placeholderTextColor="#C4A882"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          returnKeyType="go"
-          onSubmitEditing={() => runExtraction(urlInput)}
-        />
-        {urlError ? <Text style={styles.errorText}>{urlError}</Text> : null}
-        <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={() => runExtraction(urlInput)}
-        >
-          <Text style={styles.ctaText}>Check this listing</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+    <>
+      <Stack.Screen options={{ headerLeft: () => <BackButton /> }} />
+      {renderContent()}
+    </>
   );
 }
 
