@@ -353,7 +353,9 @@ export default function MapScreen() {
           <View style={styles.bottomSheetHandle} />
           <Text style={styles.buildingAddress}>{selectedBuilding.address}</Text>
           <Text style={styles.buildingLocation}>
-            {selectedBuilding.city}, {selectedBuilding.state}
+            {selectedBuilding.neighborhood
+              ? `${selectedBuilding.neighborhood}, ${selectedBuilding.borough}`
+              : `${selectedBuilding.city}, ${selectedBuilding.state}`}
           </Text>
           <View style={styles.reportInfo}>
             <View

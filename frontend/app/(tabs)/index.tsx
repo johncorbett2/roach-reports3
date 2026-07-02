@@ -17,8 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Text, View } from '@/components/Themed';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
-import { buildingsApi, statsApi } from '@/services/api';
-import { Building, ValidatedAddress } from '@/types';
+import { buildingsApi, statsApi, neighborhoodsApi } from '@/services/api';
+import { Building, Neighborhood, ValidatedAddress } from '@/types';
 import { usePostHog } from 'posthog-react-native';
 import { Events } from '@/services/analytics';
 
@@ -61,10 +61,17 @@ export default function SearchScreen() {
   const [validatedAddress, setValidatedAddress] = useState<ValidatedAddress | null>(null);
   const [showSourcesModal, setShowSourcesModal] = useState(false);
   const [roachCount, setRoachCount] = useState<number | null>(null);
+  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [neighborhoodsLoading, setNeighborhoodsLoading] = useState(false);
 
   useEffect(() => {
     loadRecentSearches();
     statsApi.get().then(s => setRoachCount(s.buildings_with_roaches)).catch(() => {});
+    setNeighborhoodsLoading(true);
+    neighborhoodsApi.getAll()
+      .then(data => setNeighborhoods(data.filter(n => n.density != null).slice(0, 30)))
+      .catch(() => {})
+      .finally(() => setNeighborhoodsLoading(false));
   }, []);
 
   const loadRecentSearches = async () => {
@@ -300,17 +307,69 @@ export default function SearchScreen() {
           </ScrollView>
         )
       ) : (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.recentContainer}>
-            <TouchableOpacity
-              style={styles.checkListingButton}
-              onPress={() => router.push('/check-listing')}
-            >
-              <FontAwesome name="share-square-o" size={16} color="#AE6E4E" style={{ marginRight: 8 }} />
-              <Text style={styles.checkListingButtonText}>Check a StreetEasy listing</Text>
-            </TouchableOpacity>
+        <ScrollView
+          style={styles.idleScroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.recentContainer}>
+              <TouchableOpacity
+                style={styles.checkListingButton}
+                onPress={() => router.push('/check-listing')}
+              >
+                <FontAwesome name="share-square-o" size={16} color="#AE6E4E" style={{ marginRight: 8 }} />
+                <Text style={styles.checkListingButtonText}>Check a StreetEasy listing</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+
+          <View style={styles.neighborhoodsSection}>
+            <Text style={styles.neighborhoodsSectionTitle}>Neighborhoods by Roach Density</Text>
+            <Text style={styles.neighborhoodsSectionSubtitle}>Positive reports per square mile, all-time</Text>
+
+            {neighborhoodsLoading ? (
+              <ActivityIndicator size="small" color="#AE6E4E" style={{ marginTop: 16 }} />
+            ) : neighborhoods.length === 0 ? (
+              <Text style={styles.neighborhoodsEmpty}>No data yet</Text>
+            ) : (
+              neighborhoods.map((n, idx) => {
+                const densityColor = (n.density ?? 0) > 30 ? '#e74c3c'
+                  : (n.density ?? 0) > 10 ? '#f39c12'
+                  : '#27ae60';
+                return (
+                  <TouchableOpacity
+                    key={n.neighborhood_code}
+                    style={styles.neighborhoodRow}
+                    onPress={() => router.push({
+                      pathname: `/neighborhood/${n.neighborhood_code}` as any,
+                      params: {
+                        name: n.neighborhood,
+                        borough: n.borough,
+                        density: String(n.density ?? ''),
+                        area_sq_miles: String(n.area_sq_miles ?? ''),
+                      },
+                    })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.neighborhoodRank}>{idx + 1}</Text>
+                    <View style={styles.neighborhoodNameBlock}>
+                      <Text style={styles.neighborhoodName}>{n.neighborhood}</Text>
+                      <Text style={styles.neighborhoodBorough}>{n.borough}</Text>
+                    </View>
+                    <View style={styles.neighborhoodDensityBlock}>
+                      <Text style={[styles.neighborhoodDensity, { color: densityColor }]}>
+                        {n.density?.toFixed(1)}
+                      </Text>
+                      <Text style={styles.neighborhoodDensityUnit}>/sq mi</Text>
+                    </View>
+                    <FontAwesome name="chevron-right" size={12} color="#C7AD7F" style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
-        </TouchableWithoutFeedback>
+        </ScrollView>
       )}
     </View>
   );
@@ -498,8 +557,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  idleScroll: {
+    flex: 1,
+  },
   recentContainer: {
     padding: 20,
+    paddingBottom: 0,
   },
   checkListingButton: {
     flexDirection: 'row',
@@ -509,12 +572,73 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 24,
     backgroundColor: '#FDF6EC',
   },
   checkListingButtonText: {
     fontSize: 15,
     color: '#AE6E4E',
     fontWeight: '500',
+  },
+  neighborhoodsSection: {
+    padding: 20,
+  },
+  neighborhoodsSectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#3D1F0D',
+    marginBottom: 4,
+  },
+  neighborhoodsSectionSubtitle: {
+    fontSize: 12,
+    color: '#A57A5A',
+    marginBottom: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  neighborhoodsEmpty: {
+    fontSize: 14,
+    color: '#A57A5A',
+    marginTop: 12,
+  },
+  neighborhoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E4D0',
+  },
+  neighborhoodRank: {
+    width: 24,
+    fontSize: 13,
+    color: '#C7AD7F',
+    fontWeight: '600',
+    textAlign: 'right',
+    marginRight: 12,
+  },
+  neighborhoodNameBlock: {
+    flex: 1,
+  },
+  neighborhoodName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#3D1F0D',
+  },
+  neighborhoodBorough: {
+    fontSize: 12,
+    color: '#A57A5A',
+    marginTop: 1,
+  },
+  neighborhoodDensityBlock: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  neighborhoodDensity: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  neighborhoodDensityUnit: {
+    fontSize: 11,
+    color: '#A57A5A',
+    marginLeft: 2,
   },
 });

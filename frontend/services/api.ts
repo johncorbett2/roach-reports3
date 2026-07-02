@@ -1,5 +1,6 @@
 import {
   Building,
+  Neighborhood,
   Report,
   ReportImage,
   CreateReportInput,
@@ -49,6 +50,10 @@ export const buildingsApi = {
     return request<Building[]>(`/buildings/search?q=${encodeURIComponent(query)}`);
   },
 
+  searchByNeighborhood: async (neighborhoodCode: string): Promise<Building[]> => {
+    return request<Building[]>(`/buildings/search?neighborhood_code=${encodeURIComponent(neighborhoodCode)}`);
+  },
+
   getById: async (id: string): Promise<Building> => {
     return request<Building>(`/buildings/${id}`);
   },
@@ -56,11 +61,16 @@ export const buildingsApi = {
   getNearby: async (
     lat: number,
     lng: number,
-    radius: number = 1000
+    radius: number = 1000,
+    neighborhoodCode?: string
   ): Promise<Building[]> => {
-    return request<Building[]>(
-      `/buildings/nearby?lat=${lat}&lng=${lng}&radius=${radius}`
-    );
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      radius: String(radius),
+    });
+    if (neighborhoodCode) params.append('neighborhood_code', neighborhoodCode);
+    return request<Building[]>(`/buildings/nearby?${params}`);
   },
 
   create: async (building: CreateBuildingInput): Promise<Building> => {
@@ -125,6 +135,13 @@ export const placesApi = {
       params.append('sessiontoken', sessionToken);
     }
     return request<ValidatedAddress>(`/places/details?${params}`);
+  },
+};
+
+// Neighborhoods API
+export const neighborhoodsApi = {
+  getAll: async (): Promise<Neighborhood[]> => {
+    return request<Neighborhood[]>('/neighborhoods');
   },
 };
 

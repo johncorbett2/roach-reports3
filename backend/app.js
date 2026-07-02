@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
+const { getNeighborhood } = require('./utils/neighborhoods');
 require('dotenv').config({
   path: process.env.NODE_ENV === 'development' ? '.env.development' : '.env',
 });
@@ -73,8 +74,9 @@ app.get('/', (req, res) => {
     availableRoutes: [
       'GET /buildings/search?q=',
       'GET /buildings/:id',
-      'GET /buildings/nearby?lat=&lng=&radius=',
+      'GET /buildings/nearby?lat=&lng=&radius=&neighborhood_code=',
       'POST /buildings',
+      'GET /neighborhoods',
       'GET /reports',
       'POST /reports',
       'POST /reports/:id/images',
@@ -102,6 +104,68 @@ app.get('/stats', async (req, res) => {
 
   statsCache = { count, cachedAt: now };
   res.json({ buildings_with_roaches: count });
+});
+
+// ======================
+// NEIGHBORHOODS ENDPOINT
+// ======================
+
+// List all neighborhoods with roach density stats
+// density = positive reports (has_roaches=true) per square mile, all-time
+app.get('/neighborhoods', async (req, res) => {
+  const { data: buildings, error } = await supabase
+    .from('buildings')
+    .select(`
+      neighborhood_code,
+      reports (has_roaches)
+    `)
+    .not('neighborhood_code', 'is', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { data: neighborhoodRows, error: nErr } = await supabase
+    .from('neighborhoods')
+    .select('code, name, borough, area_sq_miles');
+
+  if (nErr) return res.status(500).json({ error: nErr.message });
+
+  const areaByCode = {};
+  const nameByCode = {};
+  const boroughByCode = {};
+  for (const n of neighborhoodRows) {
+    areaByCode[n.code] = parseFloat(n.area_sq_miles);
+    nameByCode[n.code] = n.name;
+    boroughByCode[n.code] = n.borough;
+  }
+
+  // Aggregate report counts per neighborhood code
+  const stats = {};
+  for (const b of buildings) {
+    const code = b.neighborhood_code;
+    if (!stats[code]) stats[code] = { report_count: 0, positive_count: 0 };
+    for (const r of b.reports || []) {
+      stats[code].report_count++;
+      if (r.has_roaches) stats[code].positive_count++;
+    }
+  }
+
+  const result = Object.entries(stats)
+    .filter(([code]) => nameByCode[code])
+    .map(([code, s]) => {
+      const area = areaByCode[code] || null;
+      return {
+        neighborhood_code: code,
+        neighborhood: nameByCode[code],
+        borough: boroughByCode[code],
+        report_count: s.report_count,
+        positive_count: s.positive_count,
+        area_sq_miles: area ? Math.round(area * 1000) / 1000 : null,
+        density: area ? Math.round((s.positive_count / area) * 10) / 10 : null,
+      };
+    })
+    .sort((a, b) => (b.density ?? -1) - (a.density ?? -1));
+
+  res.json(result);
 });
 
 // ===================
@@ -211,9 +275,22 @@ app.get('/places/details', async (req, res) => {
 // BUILDINGS ENDPOINTS
 // ===================
 
-// Search buildings by address
+// Search buildings by address text or neighborhood code
 app.get('/buildings/search', async (req, res) => {
-  const { q } = req.query;
+  const { q, neighborhood_code } = req.query;
+
+  if (neighborhood_code) {
+    const { data, error } = await supabase
+      .from('buildings')
+      .select(`
+        *,
+        reports (id, has_roaches, severity, created_at, report_date)
+      `)
+      .eq('neighborhood_code', neighborhood_code)
+      .limit(200);
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json(data);
+  }
 
   if (!q || q.length < 2) {
     return res.status(400).json({ error: 'Search query must be at least 2 characters' });
@@ -235,7 +312,7 @@ app.get('/buildings/search', async (req, res) => {
 // Get buildings nearby (within radius in meters)
 // NOTE: This must come BEFORE /buildings/:id to avoid "nearby" being matched as an ID
 app.get('/buildings/nearby', async (req, res) => {
-  const { lat, lng, radius = 1000 } = req.query;
+  const { lat, lng, radius = 1000, neighborhood_code } = req.query;
 
   if (!lat || !lng) {
     return res.status(400).json({ error: 'lat and lng are required' });
@@ -245,7 +322,7 @@ app.get('/buildings/nearby', async (req, res) => {
   const latDelta = parseFloat(radius) / 111000;
   const lngDelta = parseFloat(radius) / (111000 * Math.cos(parseFloat(lat) * Math.PI / 180));
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('buildings')
     .select(`
       *,
@@ -257,6 +334,11 @@ app.get('/buildings/nearby', async (req, res) => {
     .lte('longitude', parseFloat(lng) + lngDelta)
     .limit(300);
 
+  if (neighborhood_code) {
+    query = query.eq('neighborhood_code', neighborhood_code);
+  }
+
+  const { data, error } = await query;
   if (error) return res.status(400).json({ error: error.message });
 
   const centerLat = parseFloat(lat);
@@ -278,6 +360,9 @@ app.get('/buildings/nearby', async (req, res) => {
         state: b.state,
         latitude: b.latitude,
         longitude: b.longitude,
+        neighborhood: b.neighborhood,
+        neighborhood_code: b.neighborhood_code,
+        borough: b.borough,
         marker_status: hasRecentRoach ? 'recent_roach' : hasAnyRoach ? 'older_roach' : reports.length > 0 ? 'no_roach' : 'none',
         report_count: reports.length,
         positive_count: reports.filter(r => r.has_roaches).length,
@@ -397,9 +482,10 @@ app.post('/buildings', async (req, res) => {
   }
 
   // Create new building
+  const neighborhoodData = getNeighborhood(finalLat, finalLng) || {};
   const { data, error } = await supabase
     .from('buildings')
-    .insert([{ address, city, state, zip, latitude: finalLat, longitude: finalLng }])
+    .insert([{ address, city, state, zip, latitude: finalLat, longitude: finalLng, ...neighborhoodData }])
     .select()
     .single();
 
@@ -491,9 +577,10 @@ app.post('/reports', async (req, res) => {
           }
         }
 
+        const neighborhoodData = getNeighborhood(finalLat, finalLng) || {};
         const { data: newBuilding, error: buildingError } = await supabase
           .from('buildings')
-          .insert([{ address, latitude: finalLat, longitude: finalLng, city, state, zip }])
+          .insert([{ address, latitude: finalLat, longitude: finalLng, city, state, zip, ...neighborhoodData }])
           .select('id')
           .single();
 

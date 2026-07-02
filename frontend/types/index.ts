@@ -6,6 +6,9 @@ export interface Building {
   zip: string | null;
   latitude: number | null;
   longitude: number | null;
+  neighborhood: string | null;
+  neighborhood_code: string | null;
+  borough: string | null;
   created_at?: string;
   reports?: Report[];
   stats?: BuildingStats;
@@ -13,6 +16,16 @@ export interface Building {
   marker_status?: 'recent_roach' | 'older_roach' | 'no_roach' | 'none';
   report_count?: number;
   positive_count?: number;
+}
+
+export interface Neighborhood {
+  neighborhood_code: string;
+  neighborhood: string;
+  borough: string;
+  report_count: number;
+  positive_count: number;
+  area_sq_miles: number | null;
+  density: number | null;
 }
 
 export interface BuildingStats {

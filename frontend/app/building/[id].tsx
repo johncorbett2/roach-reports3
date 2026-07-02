@@ -159,9 +159,11 @@ export default function BuildingDetailScreen() {
 
         <View style={styles.header}>
           <Text style={styles.address}>{building.address.split(',')[0]}</Text>
-          <Text style={styles.location}>
-            {building.city}, {building.state} {building.zip}
-          </Text>
+          {building.neighborhood ? (
+            <Text style={styles.location}>{building.neighborhood}, {building.borough}</Text>
+          ) : (
+            <Text style={styles.location}>{building.city}, {building.state} {building.zip}</Text>
+          )}
         </View>
 
         {stats && (
